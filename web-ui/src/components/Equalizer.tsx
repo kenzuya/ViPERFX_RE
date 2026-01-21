@@ -35,7 +35,7 @@ export function Equalizer({ bands, onChange, disabled = false }: EqualizerProps)
       </div>
 
       {/* Equalizer bands */}
-      <div className="flex items-stretch justify-between gap-1 h-52 bg-dark-800/50 rounded-lg p-3 relative overflow-hidden">
+      <div className="flex items-stretch justify-between gap-1 h-64 bg-dark-800/50 rounded-lg p-3 relative overflow-hidden">
         {/* Center line (0dB) */}
         <div className="absolute left-3 right-3 top-1/2 h-px bg-dark-600 z-0" />
 

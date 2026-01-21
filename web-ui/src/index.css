@@ -194,7 +194,7 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
   writing-mode: vertical-lr;
   direction: rtl;
   width: 6px;
-  height: 160px;
+  height: 200px;
   background: linear-gradient(to top, #334155, #475569);
   border: 1px solid #64748b;
   border-radius: 3px;
@@ -202,7 +202,7 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
 
 .eq-slider::-webkit-slider-runnable-track {
   width: 6px;
-  height: 160px;
+  height: 200px;
   background: transparent;
   border-radius: 3px;
 }
@@ -230,7 +230,7 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
 
 .eq-slider::-moz-range-track {
   width: 6px;
-  height: 160px;
+  height: 200px;
   background: transparent;
   border-radius: 3px;
 }
