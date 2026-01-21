@@ -863,7 +863,7 @@ export function useViperAudio(): UseViperAudioResult {
     }
   }, [cleanupPlayback, play]);
 
-  // Add files to queue
+  // Add files to queue with pre-loading
   const addToQueue = useCallback(async (files: File[]) => {
     const newItems: AudioQueueItem[] = files.map(file => ({
       id: generateId(),
@@ -875,18 +875,37 @@ export function useViperAudio(): UseViperAudioResult {
 
     setAudioQueue(prev => [...prev, ...newItems]);
 
-    // If queue was empty and we added items, auto-load the first one
-    if (audioQueueRef.current.length === 0 && newItems.length > 0) {
-      // Initialize audio context if needed
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-      await initAudioWorklet(audioContextRef.current);
+    // Initialize audio context for decoding
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
 
-      // Load the first track
+    const ctx = audioContextRef.current;
+    const wasEmpty = audioQueueRef.current.length === 0;
+
+    // Pre-decode all buffers in parallel (fire and forget)
+    newItems.forEach(async (item) => {
+      try {
+        const arrayBuffer = await item.file.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+        // Update queue item with decoded buffer
+        setAudioQueue(prev => prev.map(q =>
+          q.id === item.id
+            ? { ...q, buffer: audioBuffer, duration: audioBuffer.duration }
+            : q
+        ));
+      } catch (err) {
+        console.error(`[ViPER] Failed to decode ${item.name}:`, err);
+      }
+    });
+
+    // If queue was empty and we added items, auto-load the first one
+    if (wasEmpty && newItems.length > 0) {
+      await initAudioWorklet(ctx);
       setTimeout(() => playTrackInternal(0), 50);
     }
   }, [initAudioWorklet, playTrackInternal]);
