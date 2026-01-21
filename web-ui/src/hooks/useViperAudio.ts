@@ -50,14 +50,15 @@ export function useViperAudio(): UseViperAudioResult {
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
-  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
-  const processorMemoryRef = useRef<{ inputPtr: number; outputPtr: number } | null>(null);
   const workletReadyRef = useRef<boolean>(false);
-  const useWorkletRef = useRef<boolean>(false);
+  const processorMemoryRef = useRef<{ inputPtr: number; outputPtr: number } | null>(null);
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const isPlayingRef = useRef<boolean>(false);
+
+  // Buffer size for WASM processing
+  const BUFFER_SIZE = 128; // AudioWorklet render quantum
 
   // Initialize ViPER Module
   useEffect(() => {
@@ -102,6 +103,11 @@ export function useViperAudio(): UseViperAudioResult {
         const controller = new module.ViperController();
         viperControllerRef.current = controller;
 
+        // Pre-allocate memory for audio processing
+        const inputPtr = module._malloc(BUFFER_SIZE * 2 * 4); // stereo, float32
+        const outputPtr = module._malloc(BUFFER_SIZE * 2 * 4);
+        processorMemoryRef.current = { inputPtr, outputPtr };
+
         setVersion(controller.getVersion());
         setArchitecture(controller.getArchitecture());
         setIsLoading(false);
@@ -117,8 +123,13 @@ export function useViperAudio(): UseViperAudioResult {
 
     return () => {
       // Cleanup
-      cleanupProcessor();
+      if (processorMemoryRef.current && viperModuleRef.current) {
+        viperModuleRef.current._free(processorMemoryRef.current.inputPtr);
+        viperModuleRef.current._free(processorMemoryRef.current.outputPtr);
+        processorMemoryRef.current = null;
+      }
       if (workletNodeRef.current) {
+        workletNodeRef.current.port.postMessage({ type: 'reset' });
         workletNodeRef.current.disconnect();
         workletNodeRef.current = null;
       }
@@ -208,19 +219,6 @@ export function useViperAudio(): UseViperAudioResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]); // Only run once when loading completes
 
-  // Cleanup processor memory
-  const cleanupProcessor = useCallback(() => {
-    if (processorMemoryRef.current && viperModuleRef.current) {
-      viperModuleRef.current._free(processorMemoryRef.current.inputPtr);
-      viperModuleRef.current._free(processorMemoryRef.current.outputPtr);
-      processorMemoryRef.current = null;
-    }
-    if (processorNodeRef.current) {
-      processorNodeRef.current.disconnect();
-      processorNodeRef.current = null;
-    }
-  }, []);
-
   // Update time tracking
   const updateTime = useCallback(() => {
     if (audioContextRef.current && isPlaying) {
@@ -243,10 +241,47 @@ export function useViperAudio(): UseViperAudioResult {
     };
   }, [isPlaying, updateTime]);
 
-  // Initialize AudioWorklet (for pass-through, processing happens in main thread via message passing)
-  const initAudioWorklet = useCallback(async (ctx: AudioContext): Promise<boolean> => {
+  // Process audio in main thread and send back to worklet
+  const processAudioInMainThread = useCallback((inputL: Float32Array, inputR: Float32Array, sequence: number) => {
+    if (!viperControllerRef.current || !viperModuleRef.current || !processorMemoryRef.current || !workletNodeRef.current) {
+      return;
+    }
+
+    const viper = viperControllerRef.current;
+    const module = viperModuleRef.current;
+    const { inputPtr, outputPtr } = processorMemoryRef.current;
+    const frames = inputL.length;
+
+    // Copy input to WASM memory (interleaved stereo)
+    for (let i = 0; i < frames; i++) {
+      module.setValue(inputPtr + (i * 2) * 4, inputL[i], 'float');
+      module.setValue(inputPtr + (i * 2 + 1) * 4, inputR[i], 'float');
+    }
+
+    // Process through ViPER
+    viper.process(inputPtr, frames, outputPtr);
+
+    // Copy output from WASM memory
+    const outputLArray = new Float32Array(frames);
+    const outputRArray = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) {
+      outputLArray[i] = module.getValue(outputPtr + (i * 2) * 4, 'float');
+      outputRArray[i] = module.getValue(outputPtr + (i * 2 + 1) * 4, 'float');
+    }
+
+    // Send processed audio back to worklet
+    workletNodeRef.current.port.postMessage({
+      type: 'processedAudio',
+      outputL: outputLArray,
+      outputR: outputRArray,
+      sequence
+    });
+  }, []);
+
+  // Initialize AudioWorklet
+  const initAudioWorklet = useCallback(async (ctx: AudioContext): Promise<AudioWorkletNode | null> => {
     if (workletReadyRef.current && workletNodeRef.current) {
-      return useWorkletRef.current;
+      return workletNodeRef.current;
     }
 
     try {
@@ -265,38 +300,23 @@ export function useViperAudio(): UseViperAudioResult {
       // Handle messages from worklet
       workletNode.port.onmessage = (event) => {
         const data = event.data;
-        if (data.type === 'initialized') {
-          if (data.success) {
-            console.log('[ViPER] AudioWorklet initialized successfully');
-            useWorkletRef.current = true;
-          } else {
-            console.log('[ViPER] AudioWorklet fallback to main thread:', data.error);
-            useWorkletRef.current = false;
-          }
+        if (data.type === 'ready') {
+          console.log('[ViPER] AudioWorklet ready');
           workletReadyRef.current = true;
-        } else if (data.type === 'ready') {
-          // Worklet is ready, but we'll use main thread processing
-          // since Emscripten modules can't easily run in AudioWorklet
-          workletReadyRef.current = true;
-          useWorkletRef.current = false;
+        } else if (data.type === 'inputAudio') {
+          // Process audio in main thread with WASM
+          processAudioInMainThread(data.inputL, data.inputR, data.sequence);
         }
       };
 
       workletNodeRef.current = workletNode;
-
-      // Wait a bit for the ready message
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 100);
-      });
-
-      return false; // Use main thread processing
+      console.log('[ViPER] AudioWorklet initialized');
+      return workletNode;
     } catch (err) {
-      console.log('[ViPER] AudioWorklet not available, using ScriptProcessor:', err);
-      workletReadyRef.current = true;
-      useWorkletRef.current = false;
-      return false;
+      console.error('[ViPER] AudioWorklet initialization failed:', err);
+      return null;
     }
-  }, []);
+  }, [processAudioInMainThread]);
 
   // Load audio file
   const loadAudioFile = useCallback(async (file: File) => {
@@ -317,7 +337,7 @@ export function useViperAudio(): UseViperAudioResult {
         await audioContextRef.current.resume();
       }
 
-      // Try to initialize AudioWorklet (may fall back to ScriptProcessor)
+      // Initialize AudioWorklet
       await initAudioWorklet(audioContextRef.current);
 
       // Decode audio file
@@ -339,56 +359,6 @@ export function useViperAudio(): UseViperAudioResult {
     }
   }, [initAudioWorklet]);
 
-  // Create ScriptProcessor for main thread processing
-  const createScriptProcessor = useCallback(() => {
-    if (!audioContextRef.current || !viperControllerRef.current || !viperModuleRef.current) {
-      return null;
-    }
-
-    // Clean up existing processor
-    cleanupProcessor();
-
-    const ctx = audioContextRef.current;
-    const viper = viperControllerRef.current;
-    const module = viperModuleRef.current;
-    const bufferSize = 4096; // Larger buffer for smoother playback
-
-    const processor = ctx.createScriptProcessor(bufferSize, 2, 2);
-
-    // Allocate memory for input and output
-    const inputPtr = module._malloc(bufferSize * 2 * 4);
-    const outputPtr = module._malloc(bufferSize * 2 * 4);
-
-    // Store memory pointers for cleanup
-    processorMemoryRef.current = { inputPtr, outputPtr };
-    processorNodeRef.current = processor;
-
-    processor.onaudioprocess = (event) => {
-      const inputL = event.inputBuffer.getChannelData(0);
-      const inputR = event.inputBuffer.getChannelData(1);
-      const outputL = event.outputBuffer.getChannelData(0);
-      const outputR = event.outputBuffer.getChannelData(1);
-      const frames = inputL.length;
-
-      // Copy input to WASM memory (interleaved)
-      for (let i = 0; i < frames; i++) {
-        module.setValue(inputPtr + (i * 2) * 4, inputL[i], 'float');
-        module.setValue(inputPtr + (i * 2 + 1) * 4, inputR[i], 'float');
-      }
-
-      // Process through ViPER
-      viper.process(inputPtr, frames, outputPtr);
-
-      // Copy output from WASM memory (deinterleaved)
-      for (let i = 0; i < frames; i++) {
-        outputL[i] = module.getValue(outputPtr + (i * 2) * 4, 'float');
-        outputR[i] = module.getValue(outputPtr + (i * 2 + 1) * 4, 'float');
-      }
-    };
-
-    return processor;
-  }, [cleanupProcessor]);
-
   // Helper to clean up audio nodes
   const cleanupPlayback = useCallback(() => {
     if (sourceNodeRef.current) {
@@ -399,6 +369,10 @@ export function useViperAudio(): UseViperAudioResult {
       }
       sourceNodeRef.current.disconnect();
       sourceNodeRef.current = null;
+    }
+    // Reset worklet buffer state
+    if (workletNodeRef.current) {
+      workletNodeRef.current.port.postMessage({ type: 'reset' });
     }
   }, []);
 
@@ -411,7 +385,6 @@ export function useViperAudio(): UseViperAudioResult {
 
     // Clean up any existing playback
     cleanupPlayback();
-    cleanupProcessor();
 
     const ctx = audioContextRef.current;
 
@@ -420,16 +393,20 @@ export function useViperAudio(): UseViperAudioResult {
       await ctx.resume();
     }
 
+    // Ensure worklet is ready
+    if (!workletNodeRef.current) {
+      await initAudioWorklet(ctx);
+    }
+
     const source = ctx.createBufferSource();
     source.buffer = audioBufferRef.current;
 
-    // Create processor and connect
-    const processor = createScriptProcessor();
-    if (processor) {
-      source.connect(processor);
-      processor.connect(ctx.destination);
+    // Connect through worklet
+    if (workletNodeRef.current) {
+      source.connect(workletNodeRef.current);
+      workletNodeRef.current.connect(ctx.destination);
     } else {
-      // No processing available, direct connection
+      // Fallback: direct connection if worklet failed
       source.connect(ctx.destination);
     }
 
@@ -438,7 +415,6 @@ export function useViperAudio(): UseViperAudioResult {
         isPlayingRef.current = false;
         setIsPlaying(false);
         setCurrentTime(duration);
-        cleanupProcessor();
       }
     };
 
@@ -450,7 +426,7 @@ export function useViperAudio(): UseViperAudioResult {
 
     isPlayingRef.current = true;
     setIsPlaying(true);
-  }, [cleanupPlayback, cleanupProcessor, createScriptProcessor, duration]);
+  }, [cleanupPlayback, initAudioWorklet, duration]);
 
   // Pause
   const pause = useCallback(() => {
@@ -458,20 +434,18 @@ export function useViperAudio(): UseViperAudioResult {
       pauseTimeRef.current = audioContextRef.current.currentTime - startTimeRef.current + pauseTimeRef.current;
     }
     cleanupPlayback();
-    cleanupProcessor();
     isPlayingRef.current = false;
     setIsPlaying(false);
-  }, [cleanupPlayback, cleanupProcessor]);
+  }, [cleanupPlayback]);
 
   // Stop
   const stop = useCallback(() => {
     cleanupPlayback();
-    cleanupProcessor();
     pauseTimeRef.current = 0;
     setCurrentTime(0);
     isPlayingRef.current = false;
     setIsPlaying(false);
-  }, [cleanupPlayback, cleanupProcessor]);
+  }, [cleanupPlayback]);
 
   // Seek
   const seek = useCallback((time: number) => {
@@ -479,7 +453,6 @@ export function useViperAudio(): UseViperAudioResult {
 
     if (wasPlaying) {
       cleanupPlayback();
-      cleanupProcessor();
       isPlayingRef.current = false;
       setIsPlaying(false);
     }
@@ -493,7 +466,7 @@ export function useViperAudio(): UseViperAudioResult {
         play();
       }, 10);
     }
-  }, [cleanupPlayback, cleanupProcessor, play]);
+  }, [cleanupPlayback, play]);
 
   // Update effect
   const updateEffect = useCallback(<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => {
@@ -506,6 +479,10 @@ export function useViperAudio(): UseViperAudioResult {
     switch (key) {
       case 'enabled':
         controller.setEnabled(value as boolean);
+        // Also notify worklet
+        if (workletNodeRef.current) {
+          workletNodeRef.current.port.postMessage({ type: 'setEnabled', value });
+        }
         break;
       case 'convolverEnabled':
         controller.setConvolverEnabled(value as boolean);
