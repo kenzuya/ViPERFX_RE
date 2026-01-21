@@ -226,6 +226,45 @@ export interface ViperEffectState {
   fetCompressorNoClip: boolean;
 }
 
+// localStorage key for persisting effect state
+export const VIPER_STORAGE_KEY = 'viper4web-effect-state';
+
+// Save effect state to localStorage
+export function saveEffectState(state: ViperEffectState): void {
+  try {
+    localStorage.setItem(VIPER_STORAGE_KEY, JSON.stringify(state));
+  } catch (err) {
+    console.warn('[ViPER] Failed to save effect state to localStorage:', err);
+  }
+}
+
+// Load effect state from localStorage
+export function loadEffectState(): ViperEffectState | null {
+  try {
+    const saved = localStorage.getItem(VIPER_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Validate that it has the expected structure by checking a few key properties
+      if (typeof parsed === 'object' && parsed !== null && 'enabled' in parsed) {
+        return parsed as ViperEffectState;
+      }
+    }
+  } catch (err) {
+    console.warn('[ViPER] Failed to load effect state from localStorage:', err);
+  }
+  return null;
+}
+
+// Get initial effect state (from localStorage or defaults)
+export function getInitialEffectState(): ViperEffectState {
+  const saved = loadEffectState();
+  if (saved) {
+    // Merge with defaults to ensure all fields exist (in case new fields were added)
+    return { ...defaultEffectState, ...saved };
+  }
+  return defaultEffectState;
+}
+
 export const defaultEffectState: ViperEffectState = {
   enabled: true,
 
