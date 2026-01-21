@@ -48,29 +48,65 @@ body {
 }
 
 /* Slider customization */
-input[type="range"] {
+input[type="range"].slider-input {
+  @apply appearance-none cursor-pointer;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid #475569;
+}
+
+input[type="range"].slider-input::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+}
+
+input[type="range"].slider-input::-webkit-slider-thumb:hover {
+  @apply bg-viper-400;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.7);
+}
+
+input[type="range"].slider-input::-moz-range-track {
+  @apply h-2 rounded-full;
+  background: transparent;
+}
+
+input[type="range"].slider-input::-moz-range-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+}
+
+input[type="range"].slider-input::-moz-range-thumb:hover {
+  @apply bg-viper-400;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.7);
+}
+
+/* Legacy range input styling (non-slider-input) */
+input[type="range"]:not(.slider-input):not(.eq-slider) {
   @apply appearance-none bg-transparent cursor-pointer;
+  height: 24px;
 }
 
-input[type="range"]::-webkit-slider-track {
-  @apply h-2 rounded-full bg-dark-700;
+input[type="range"]:not(.slider-input):not(.eq-slider)::-webkit-slider-runnable-track {
+  @apply h-2 rounded-full;
+  background: linear-gradient(to right, #334155, #475569);
+  border: 1px solid #475569;
 }
 
-input[type="range"]::-webkit-slider-thumb {
-  @apply appearance-none w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400 shadow-lg;
+input[type="range"]:not(.slider-input):not(.eq-slider)::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
   margin-top: -4px;
 }
 
-input[type="range"]::-webkit-slider-thumb:hover {
-  @apply bg-viper-400;
+input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-track {
+  @apply h-2 rounded-full;
+  background: linear-gradient(to right, #334155, #475569);
+  border: 1px solid #475569;
 }
 
-input[type="range"]::-moz-range-track {
-  @apply h-2 rounded-full bg-dark-700;
-}
-
-input[type="range"]::-moz-range-thumb {
-  @apply appearance-none w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400 shadow-lg;
+input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
 }
 
 /* Toggle switch */

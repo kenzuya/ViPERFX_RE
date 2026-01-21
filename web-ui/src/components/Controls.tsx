@@ -31,6 +31,9 @@ interface SliderProps {
 }
 
 export function Slider({ value, min, max, step = 1, onChange, label, unit = '', disabled = false }: SliderProps) {
+  // Calculate percentage for the filled portion
+  const percentage = ((value - min) / (max - min)) * 100;
+
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -39,16 +42,21 @@ export function Slider({ value, min, max, step = 1, onChange, label, unit = '', 
           <span className="text-viper-400 font-mono">{value}{unit}</span>
         </div>
       )}
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        disabled={disabled}
-        className={`w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-      />
+      <div className="relative">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          disabled={disabled}
+          className={`slider-input w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          style={{
+            background: `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${percentage}%, #334155 ${percentage}%, #475569 100%)`
+          }}
+        />
+      </div>
     </div>
   );
 }
