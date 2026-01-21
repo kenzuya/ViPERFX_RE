@@ -231,12 +231,13 @@ export function useViperAudio(): UseViperAudioResult {
 
   // Update time tracking
   const updateTime = useCallback(() => {
-    if (audioContextRef.current && isPlaying) {
+    if (audioContextRef.current && isPlayingRef.current) {
       const elapsed = audioContextRef.current.currentTime - startTimeRef.current + pauseTimeRef.current;
-      setCurrentTime(Math.min(elapsed, duration));
+      const audioDuration = audioBufferRef.current?.duration || 0;
+      setCurrentTime(Math.min(elapsed, audioDuration));
       animationFrameRef.current = requestAnimationFrame(updateTime);
     }
-  }, [isPlaying, duration]);
+  }, []);
 
   useEffect(() => {
     if (isPlaying) {
@@ -436,7 +437,9 @@ export function useViperAudio(): UseViperAudioResult {
       if (isPlayingRef.current) {
         isPlayingRef.current = false;
         setIsPlaying(false);
-        setCurrentTime(duration);
+        // Reset to beginning when playback completes
+        pauseTimeRef.current = 0;
+        setCurrentTime(0);
       }
     };
 
