@@ -49,12 +49,12 @@ export function useViperAudio(): UseViperAudioResult {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-  // Reserved for future AudioWorklet implementation
-  const _workletNodeRef = useRef<AudioWorkletNode | null>(null);
-  void _workletNodeRef; // Suppress unused warning
+  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const processorMemoryRef = useRef<{ inputPtr: number; outputPtr: number } | null>(null);
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
+  const isPlayingRef = useRef<boolean>(false);
 
   // Initialize ViPER Module
   useEffect(() => {
@@ -113,6 +113,16 @@ export function useViperAudio(): UseViperAudioResult {
     initViper();
 
     return () => {
+      // Clean up processor memory
+      if (processorMemoryRef.current && viperModuleRef.current) {
+        viperModuleRef.current._free(processorMemoryRef.current.inputPtr);
+        viperModuleRef.current._free(processorMemoryRef.current.outputPtr);
+        processorMemoryRef.current = null;
+      }
+      if (processorNodeRef.current) {
+        processorNodeRef.current.disconnect();
+        processorNodeRef.current = null;
+      }
       if (viperControllerRef.current) {
         viperControllerRef.current.delete();
       }
@@ -191,6 +201,17 @@ export function useViperAudio(): UseViperAudioResult {
       return null;
     }
 
+    // Clean up existing processor first
+    if (processorMemoryRef.current && viperModuleRef.current) {
+      viperModuleRef.current._free(processorMemoryRef.current.inputPtr);
+      viperModuleRef.current._free(processorMemoryRef.current.outputPtr);
+      processorMemoryRef.current = null;
+    }
+    if (processorNodeRef.current) {
+      processorNodeRef.current.disconnect();
+      processorNodeRef.current = null;
+    }
+
     const ctx = audioContextRef.current;
     const viper = viperControllerRef.current;
     const module = viperModuleRef.current;
@@ -203,6 +224,10 @@ export function useViperAudio(): UseViperAudioResult {
     // Allocate memory for input and output
     const inputPtr = module._malloc(bufferSize * 2 * 4); // stereo float32
     const outputPtr = module._malloc(bufferSize * 2 * 4);
+
+    // Store memory pointers for cleanup
+    processorMemoryRef.current = { inputPtr, outputPtr };
+    processorNodeRef.current = processor;
 
     processor.onaudioprocess = (event) => {
       const inputL = event.inputBuffer.getChannelData(0);
@@ -226,13 +251,24 @@ export function useViperAudio(): UseViperAudioResult {
       }
     };
 
-    // Store cleanup function
-    (processor as unknown as { cleanup?: () => void }).cleanup = () => {
-      module._free(inputPtr);
-      module._free(outputPtr);
-    };
-
     return processor;
+  }, []);
+
+  // Helper to clean up audio nodes
+  const cleanupPlayback = useCallback(() => {
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.stop();
+      } catch {
+        // Ignore errors if already stopped
+      }
+      sourceNodeRef.current.disconnect();
+      sourceNodeRef.current = null;
+    }
+    if (processorNodeRef.current) {
+      processorNodeRef.current.disconnect();
+      // Don't null out - we'll reuse or recreate on next play
+    }
   }, []);
 
   // Play
@@ -242,11 +278,8 @@ export function useViperAudio(): UseViperAudioResult {
       return;
     }
 
-    // Stop any existing playback
-    if (sourceNodeRef.current) {
-      sourceNodeRef.current.stop();
-      sourceNodeRef.current.disconnect();
-    }
+    // Clean up any existing playback
+    cleanupPlayback();
 
     const ctx = audioContextRef.current;
     const source = ctx.createBufferSource();
@@ -262,7 +295,8 @@ export function useViperAudio(): UseViperAudioResult {
     }
 
     source.onended = () => {
-      if (isPlaying) {
+      if (isPlayingRef.current) {
+        isPlayingRef.current = false;
         setIsPlaying(false);
         setCurrentTime(duration);
       }
@@ -274,42 +308,76 @@ export function useViperAudio(): UseViperAudioResult {
     source.start(0, offset);
     sourceNodeRef.current = source;
 
+    isPlayingRef.current = true;
     setIsPlaying(true);
-  }, [createViperProcessor, duration, isPlaying]);
+  }, [cleanupPlayback, createViperProcessor, duration]);
 
   // Pause
   const pause = useCallback(() => {
     if (sourceNodeRef.current && audioContextRef.current) {
       pauseTimeRef.current = audioContextRef.current.currentTime - startTimeRef.current + pauseTimeRef.current;
-      sourceNodeRef.current.stop();
-      sourceNodeRef.current.disconnect();
-      sourceNodeRef.current = null;
     }
+    cleanupPlayback();
+    isPlayingRef.current = false;
     setIsPlaying(false);
-  }, []);
+  }, [cleanupPlayback]);
 
   // Stop
   const stop = useCallback(() => {
-    if (sourceNodeRef.current) {
-      sourceNodeRef.current.stop();
-      sourceNodeRef.current.disconnect();
-      sourceNodeRef.current = null;
-    }
+    cleanupPlayback();
     pauseTimeRef.current = 0;
     setCurrentTime(0);
+    isPlayingRef.current = false;
     setIsPlaying(false);
-  }, []);
+  }, [cleanupPlayback]);
 
   // Seek
   const seek = useCallback((time: number) => {
+    const wasPlaying = isPlayingRef.current;
+
+    if (wasPlaying) {
+      cleanupPlayback();
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    }
+
     pauseTimeRef.current = time;
     setCurrentTime(time);
 
-    if (isPlaying) {
-      pause();
-      play();
+    if (wasPlaying) {
+      // Use setTimeout to ensure state is updated before playing again
+      setTimeout(() => {
+        if (audioContextRef.current && audioBufferRef.current) {
+          const ctx = audioContextRef.current;
+          const source = ctx.createBufferSource();
+          source.buffer = audioBufferRef.current;
+
+          const processor = createViperProcessor();
+          if (processor) {
+            source.connect(processor);
+            processor.connect(ctx.destination);
+          } else {
+            source.connect(ctx.destination);
+          }
+
+          source.onended = () => {
+            if (isPlayingRef.current) {
+              isPlayingRef.current = false;
+              setIsPlaying(false);
+              setCurrentTime(duration);
+            }
+          };
+
+          startTimeRef.current = ctx.currentTime;
+          source.start(0, time);
+          sourceNodeRef.current = source;
+
+          isPlayingRef.current = true;
+          setIsPlaying(true);
+        }
+      }, 0);
     }
-  }, [isPlaying, pause, play]);
+  }, [cleanupPlayback, createViperProcessor, duration]);
 
   // Update effect
   const updateEffect = useCallback(<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => {
