@@ -42,7 +42,15 @@ export function Slider({ value, min, max, step = 1, onChange, label, unit = '', 
           <span className="text-viper-400 font-mono">{value}{unit}</span>
         </div>
       )}
-      <div className="relative">
+      <div className="relative h-4 flex items-center">
+        {/* Track background */}
+        <div className="absolute left-0 right-0 h-1 rounded-full bg-dark-600 border border-dark-500" />
+        {/* Filled portion */}
+        <div
+          className="absolute left-0 h-1 rounded-full bg-viper-500"
+          style={{ width: `${percentage}%` }}
+        />
+        {/* Input */}
         <input
           type="range"
           min={min}
@@ -51,10 +59,7 @@ export function Slider({ value, min, max, step = 1, onChange, label, unit = '', 
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
           disabled={disabled}
-          className={`slider-input w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          style={{
-            background: `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${percentage}%, #334155 ${percentage}%, #475569 100%)`
-          }}
+          className={`slider-input w-full relative z-10 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         />
       </div>
     </div>
