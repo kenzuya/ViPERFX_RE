@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 interface MusicPlayerProps {
   audioFileName: string | null;
   isPlaying: boolean;
+  isLoadingAudio: boolean;
   currentTime: number;
   duration: number;
   onLoadFile: (file: File) => void;
@@ -21,6 +22,7 @@ function formatTime(seconds: number): string {
 export function MusicPlayer({
   audioFileName,
   isPlaying,
+  isLoadingAudio,
   currentTime,
   duration,
   onLoadFile,
@@ -40,11 +42,12 @@ export function MusicPlayer({
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (isLoadingAudio) return; // Prevent loading while already loading
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('audio/')) {
       onLoadFile(file);
     }
-  }, [onLoadFile]);
+  }, [onLoadFile, isLoadingAudio]);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -52,14 +55,21 @@ export function MusicPlayer({
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Controls are disabled when no audio is loaded or when audio is loading
+  const controlsDisabled = !audioFileName || isLoadingAudio;
+
   return (
     <div className="glass rounded-2xl p-6">
       {/* File Drop Zone */}
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        onClick={() => fileInputRef.current?.click()}
-        className="border-2 border-dashed border-dark-600 hover:border-viper-500 rounded-xl p-8 text-center cursor-pointer transition-colors mb-6"
+        onClick={() => !isLoadingAudio && fileInputRef.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors mb-6 ${
+          isLoadingAudio
+            ? 'border-dark-600 cursor-wait opacity-75'
+            : 'border-dark-600 hover:border-viper-500 cursor-pointer'
+        }`}
       >
         <input
           ref={fileInputRef}
@@ -67,16 +77,27 @@ export function MusicPlayer({
           accept="audio/*"
           onChange={handleFileChange}
           className="hidden"
+          disabled={isLoadingAudio}
         />
-        <svg className="w-12 h-12 mx-auto mb-3 text-dark-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-        {audioFileName ? (
-          <p className="text-white font-medium">{audioFileName}</p>
+        {isLoadingAudio ? (
+          <>
+            <div className="animate-spin w-12 h-12 border-4 border-viper-500 border-t-transparent rounded-full mx-auto mb-3" />
+            <p className="text-viper-400 font-medium">Loading audio...</p>
+            <p className="text-dark-500 text-sm mt-1">{audioFileName}</p>
+          </>
         ) : (
           <>
-            <p className="text-dark-300">Drop an audio file here or click to browse</p>
-            <p className="text-dark-500 text-sm mt-1">MP3, WAV, FLAC, OGG supported</p>
+            <svg className="w-12 h-12 mx-auto mb-3 text-dark-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            {audioFileName ? (
+              <p className="text-white font-medium">{audioFileName}</p>
+            ) : (
+              <>
+                <p className="text-dark-300">Drop an audio file here or click to browse</p>
+                <p className="text-dark-500 text-sm mt-1">MP3, WAV, FLAC, OGG supported</p>
+              </>
+            )}
           </>
         )}
       </div>
@@ -84,8 +105,11 @@ export function MusicPlayer({
       {/* Progress Bar */}
       <div className="mb-4">
         <div
-          className="h-2 bg-dark-700 rounded-full cursor-pointer overflow-hidden"
+          className={`h-2 bg-dark-700 rounded-full overflow-hidden ${
+            controlsDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+          }`}
           onClick={(e) => {
+            if (controlsDisabled) return;
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const percent = x / rect.width;
@@ -107,7 +131,7 @@ export function MusicPlayer({
       <div className="flex items-center justify-center gap-4">
         <button
           onClick={onStop}
-          disabled={!audioFileName}
+          disabled={controlsDisabled}
           className="p-3 rounded-full bg-dark-700 hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -117,10 +141,12 @@ export function MusicPlayer({
 
         <button
           onClick={isPlaying ? onPause : onPlay}
-          disabled={!audioFileName}
+          disabled={controlsDisabled}
           className="p-4 rounded-full bg-viper-500 hover:bg-viper-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors glow-viper"
         >
-          {isPlaying ? (
+          {isLoadingAudio ? (
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : isPlaying ? (
             <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
@@ -133,7 +159,7 @@ export function MusicPlayer({
 
         <button
           onClick={() => onSeek(Math.max(0, currentTime - 10))}
-          disabled={!audioFileName}
+          disabled={controlsDisabled}
           className="p-3 rounded-full bg-dark-700 hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,7 +169,7 @@ export function MusicPlayer({
 
         <button
           onClick={() => onSeek(Math.min(duration, currentTime + 10))}
-          disabled={!audioFileName}
+          disabled={controlsDisabled}
           className="p-3 rounded-full bg-dark-700 hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -6,6 +6,7 @@ import { ToggleSwitch } from './components/Controls';
 function App() {
   const {
     isLoading,
+    isLoadingAudio,
     isPlaying,
     error,
     effectState,
@@ -76,8 +77,8 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Error Display */}
-        {error && (
+        {/* Error Display - hidden when loading audio */}
+        {error && !isLoadingAudio && (
           <div className="bg-red-900/50 border border-red-700 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-2 text-red-400">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -97,6 +98,7 @@ function App() {
           <MusicPlayer
             audioFileName={audioFileName}
             isPlaying={isPlaying}
+            isLoadingAudio={isLoadingAudio}
             currentTime={currentTime}
             duration={duration}
             onLoadFile={loadAudioFile}

@@ -14,6 +14,7 @@ declare global {
 export interface UseViperAudioResult {
   // State
   isLoading: boolean;
+  isLoadingAudio: boolean;
   isPlaying: boolean;
   error: string | null;
   effectState: ViperEffectState;
@@ -35,6 +36,7 @@ export interface UseViperAudioResult {
 
 export function useViperAudio(): UseViperAudioResult {
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [effectState, setEffectState] = useState<ViperEffectState>(getInitialEffectState);
@@ -325,6 +327,10 @@ export function useViperAudio(): UseViperAudioResult {
       return;
     }
 
+    // Clear any previous errors and set loading state
+    setError(null);
+    setIsLoadingAudio(true);
+
     try {
       setAudioFileName(file.name);
 
@@ -356,6 +362,9 @@ export function useViperAudio(): UseViperAudioResult {
     } catch (err) {
       console.error('[ViPER] Error loading audio:', err);
       setError(err instanceof Error ? err.message : 'Failed to load audio file');
+      setAudioFileName(null);
+    } finally {
+      setIsLoadingAudio(false);
     }
   }, [initAudioWorklet]);
 
@@ -662,6 +671,7 @@ export function useViperAudio(): UseViperAudioResult {
 
   return {
     isLoading,
+    isLoadingAudio,
     isPlaying,
     error,
     effectState,
