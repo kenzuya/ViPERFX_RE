@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ViperController, ViperModule, ViperEffectState, defaultEffectState, getInitialEffectState, saveEffectState } from '../types/viper';
+import { ViperController, ViperModule, ViperEffectState, defaultEffectState, getInitialEffectState, saveEffectState, AudioQueueItem, RepeatMode } from '../types/viper';
 
 interface ViperModuleFactory {
   (options?: { locateFile?: (path: string) => string }): Promise<ViperModule>;
@@ -24,6 +24,11 @@ export interface UseViperAudioResult {
   duration: number;
   audioFileName: string | null;
 
+  // Queue state
+  audioQueue: AudioQueueItem[];
+  currentQueueIndex: number;
+  repeatMode: RepeatMode;
+
   // Actions
   loadAudioFile: (file: File) => Promise<void>;
   play: () => void;
@@ -33,6 +38,20 @@ export interface UseViperAudioResult {
   updateEffect: <K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => void;
   updateEqualizerBand: (bandIndex: number, gain: number) => void;
   resetEffects: () => void;
+
+  // Queue actions
+  addToQueue: (files: File[]) => Promise<void>;
+  removeFromQueue: (id: string) => void;
+  clearQueue: () => void;
+  playTrack: (index: number) => void;
+  playNext: () => void;
+  playPrevious: () => void;
+  toggleRepeat: () => void;
+}
+
+// Generate unique ID for queue items
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 9);
 }
 
 export function useViperAudio(): UseViperAudioResult {
@@ -47,6 +66,11 @@ export function useViperAudio(): UseViperAudioResult {
   const [duration, setDuration] = useState(0);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
 
+  // Queue state
+  const [audioQueue, setAudioQueue] = useState<AudioQueueItem[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
+
   const viperModuleRef = useRef<ViperModule | null>(null);
   const viperControllerRef = useRef<ViperController | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -59,6 +83,24 @@ export function useViperAudio(): UseViperAudioResult {
   const pauseTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const isPlayingRef = useRef<boolean>(false);
+
+  // Refs for queue state (to avoid stale closures)
+  const audioQueueRef = useRef<AudioQueueItem[]>([]);
+  const currentQueueIndexRef = useRef<number>(-1);
+  const repeatModeRef = useRef<RepeatMode>('off');
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    audioQueueRef.current = audioQueue;
+  }, [audioQueue]);
+
+  useEffect(() => {
+    currentQueueIndexRef.current = currentQueueIndex;
+  }, [currentQueueIndex]);
+
+  useEffect(() => {
+    repeatModeRef.current = repeatMode;
+  }, [repeatMode]);
 
   // Buffer size for WASM processing - must match worklet's inputChunkSize
   const BUFFER_SIZE = 512;
@@ -437,9 +479,27 @@ export function useViperAudio(): UseViperAudioResult {
       if (isPlayingRef.current) {
         isPlayingRef.current = false;
         setIsPlaying(false);
-        // Reset to beginning when playback completes
-        pauseTimeRef.current = 0;
-        setCurrentTime(0);
+
+        const queue = audioQueueRef.current;
+        const currentIndex = currentQueueIndexRef.current;
+        const repeat = repeatModeRef.current;
+
+        if (repeat === 'one') {
+          // Repeat current track
+          pauseTimeRef.current = 0;
+          setCurrentTime(0);
+          setTimeout(() => play(), 10);
+        } else if (currentIndex < queue.length - 1) {
+          // Play next track
+          playTrackInternal(currentIndex + 1);
+        } else if (repeat === 'all' && queue.length > 0) {
+          // Loop back to first track
+          playTrackInternal(0);
+        } else {
+          // End of queue, reset to beginning
+          pauseTimeRef.current = 0;
+          setCurrentTime(0);
+        }
       }
     };
 
@@ -735,6 +795,195 @@ export function useViperAudio(): UseViperAudioResult {
     }
   }, []);
 
+  // Internal function to play a track by index (used by onended and playTrack)
+  const playTrackInternal = useCallback(async (index: number) => {
+    const queue = audioQueueRef.current;
+    if (index < 0 || index >= queue.length) return;
+
+    const item = queue[index];
+
+    // Clean up existing playback
+    cleanupPlayback();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+
+    // Update current index
+    setCurrentQueueIndex(index);
+    currentQueueIndexRef.current = index;
+
+    // If buffer is already loaded, use it
+    if (item.buffer) {
+      audioBufferRef.current = item.buffer;
+      setAudioFileName(item.name);
+      setDuration(item.duration);
+      pauseTimeRef.current = 0;
+      setCurrentTime(0);
+
+      // Set sample rate
+      if (viperControllerRef.current) {
+        viperControllerRef.current.setSampleRate(item.buffer.sampleRate);
+      }
+
+      // Start playback
+      setTimeout(() => play(), 10);
+    } else {
+      // Need to decode the buffer first
+      setIsLoadingAudio(true);
+      setAudioFileName(item.name);
+
+      try {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+
+        const arrayBuffer = await item.file.arrayBuffer();
+        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+
+        // Update the queue item with the buffer
+        setAudioQueue(prev => prev.map((q, i) =>
+          i === index ? { ...q, buffer: audioBuffer, duration: audioBuffer.duration } : q
+        ));
+
+        audioBufferRef.current = audioBuffer;
+        setDuration(audioBuffer.duration);
+        pauseTimeRef.current = 0;
+        setCurrentTime(0);
+
+        if (viperControllerRef.current) {
+          viperControllerRef.current.setSampleRate(audioBuffer.sampleRate);
+        }
+
+        setIsLoadingAudio(false);
+        setTimeout(() => play(), 10);
+      } catch (err) {
+        console.error('[ViPER] Error loading track:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load track');
+        setIsLoadingAudio(false);
+      }
+    }
+  }, [cleanupPlayback, play]);
+
+  // Add files to queue
+  const addToQueue = useCallback(async (files: File[]) => {
+    const newItems: AudioQueueItem[] = files.map(file => ({
+      id: generateId(),
+      file,
+      name: file.name,
+      duration: 0,
+      buffer: null,
+    }));
+
+    setAudioQueue(prev => [...prev, ...newItems]);
+
+    // If queue was empty and we added items, auto-load the first one
+    if (audioQueueRef.current.length === 0 && newItems.length > 0) {
+      // Initialize audio context if needed
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      await initAudioWorklet(audioContextRef.current);
+
+      // Load the first track
+      setTimeout(() => playTrackInternal(0), 50);
+    }
+  }, [initAudioWorklet, playTrackInternal]);
+
+  // Remove from queue
+  const removeFromQueue = useCallback((id: string) => {
+    const index = audioQueueRef.current.findIndex(item => item.id === id);
+    if (index === -1) return;
+
+    // If removing currently playing track, stop playback
+    if (index === currentQueueIndexRef.current) {
+      cleanupPlayback();
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      audioBufferRef.current = null;
+      setAudioFileName(null);
+      setDuration(0);
+      setCurrentTime(0);
+    }
+
+    setAudioQueue(prev => prev.filter(item => item.id !== id));
+
+    // Adjust current index if needed
+    if (index < currentQueueIndexRef.current) {
+      setCurrentQueueIndex(prev => prev - 1);
+    } else if (index === currentQueueIndexRef.current) {
+      setCurrentQueueIndex(-1);
+    }
+  }, [cleanupPlayback]);
+
+  // Clear queue
+  const clearQueue = useCallback(() => {
+    cleanupPlayback();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    audioBufferRef.current = null;
+    setAudioFileName(null);
+    setDuration(0);
+    setCurrentTime(0);
+    setAudioQueue([]);
+    setCurrentQueueIndex(-1);
+  }, [cleanupPlayback]);
+
+  // Play specific track
+  const playTrack = useCallback((index: number) => {
+    playTrackInternal(index);
+  }, [playTrackInternal]);
+
+  // Play next track
+  const playNext = useCallback(() => {
+    const queue = audioQueueRef.current;
+    const currentIndex = currentQueueIndexRef.current;
+
+    if (queue.length === 0) return;
+
+    if (currentIndex < queue.length - 1) {
+      playTrackInternal(currentIndex + 1);
+    } else if (repeatModeRef.current === 'all') {
+      playTrackInternal(0);
+    }
+  }, [playTrackInternal]);
+
+  // Play previous track
+  const playPrevious = useCallback(() => {
+    const queue = audioQueueRef.current;
+    const currentIndex = currentQueueIndexRef.current;
+
+    if (queue.length === 0) return;
+
+    // If more than 3 seconds into track, restart current track
+    if (pauseTimeRef.current > 3 || (audioContextRef.current &&
+        audioContextRef.current.currentTime - startTimeRef.current + pauseTimeRef.current > 3)) {
+      pauseTimeRef.current = 0;
+      setCurrentTime(0);
+      if (isPlayingRef.current) {
+        cleanupPlayback();
+        setTimeout(() => play(), 10);
+      }
+      return;
+    }
+
+    if (currentIndex > 0) {
+      playTrackInternal(currentIndex - 1);
+    } else if (repeatModeRef.current === 'all') {
+      playTrackInternal(queue.length - 1);
+    }
+  }, [playTrackInternal, cleanupPlayback, play]);
+
+  // Toggle repeat mode
+  const toggleRepeat = useCallback(() => {
+    setRepeatMode(prev => {
+      if (prev === 'off') return 'all';
+      if (prev === 'all') return 'one';
+      return 'off';
+    });
+  }, []);
+
   return {
     isLoading,
     isLoadingAudio,
@@ -754,5 +1003,17 @@ export function useViperAudio(): UseViperAudioResult {
     updateEffect,
     updateEqualizerBand,
     resetEffects,
+
+    // Queue state and actions
+    audioQueue,
+    currentQueueIndex,
+    repeatMode,
+    addToQueue,
+    removeFromQueue,
+    clearQueue,
+    playTrack,
+    playNext,
+    playPrevious,
+    toggleRepeat,
   };
 }

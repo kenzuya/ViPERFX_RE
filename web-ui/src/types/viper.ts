@@ -21,6 +21,25 @@ export interface ViperModule extends MainModule {
   HEAPU8: Uint8Array;
 }
 
+/**
+ * Audio Queue Item - represents a single track in the queue
+ */
+export interface AudioQueueItem {
+  id: string;
+  file: File;
+  name: string;
+  duration: number;
+  buffer: AudioBuffer | null;
+}
+
+/**
+ * Repeat Mode for audio playback
+ * - 'off': No repeat, stop after queue ends
+ * - 'one': Repeat current track
+ * - 'all': Repeat entire queue
+ */
+export type RepeatMode = 'off' | 'one' | 'all';
+
 export interface ViperEffectState {
   // Master
   enabled: boolean;

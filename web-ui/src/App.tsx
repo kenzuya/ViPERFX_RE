@@ -15,7 +15,6 @@ function App() {
     currentTime,
     duration,
     audioFileName,
-    loadAudioFile,
     play,
     pause,
     stop,
@@ -23,6 +22,17 @@ function App() {
     updateEffect,
     updateEqualizerBand,
     resetEffects,
+    // Queue state and actions
+    audioQueue,
+    currentQueueIndex,
+    repeatMode,
+    addToQueue,
+    removeFromQueue,
+    clearQueue,
+    playTrack,
+    playNext,
+    playPrevious,
+    toggleRepeat,
   } = useViperAudio();
 
   if (isLoading) {
@@ -102,11 +112,20 @@ function App() {
             isLoadingAudio={isLoadingAudio}
             currentTime={currentTime}
             duration={duration}
-            onLoadFile={loadAudioFile}
             onPlay={play}
             onPause={pause}
             onStop={stop}
             onSeek={seek}
+            queue={audioQueue}
+            currentQueueIndex={currentQueueIndex}
+            repeatMode={repeatMode}
+            onAddToQueue={addToQueue}
+            onRemoveFromQueue={removeFromQueue}
+            onClearQueue={clearQueue}
+            onPlayTrack={playTrack}
+            onPlayNext={playNext}
+            onPlayPrevious={playPrevious}
+            onToggleRepeat={toggleRepeat}
           />
         </section>
 
