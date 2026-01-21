@@ -35,14 +35,14 @@ export function Equalizer({ bands, onChange, disabled = false }: EqualizerProps)
       </div>
 
       {/* Equalizer bands */}
-      <div className="flex items-end justify-between gap-1 h-40 bg-dark-800/50 rounded-lg p-3 relative">
+      <div className="flex items-stretch justify-between gap-1 h-40 bg-dark-800/50 rounded-lg p-3 relative overflow-hidden">
         {/* Center line (0dB) */}
-        <div className="absolute left-3 right-3 top-1/2 h-px bg-dark-600" />
+        <div className="absolute left-3 right-3 top-1/2 h-px bg-dark-600 z-0" />
 
         {bands.map((gain, index) => (
-          <div key={EQ_BANDS[index]} className="flex flex-col items-center flex-1 h-full">
+          <div key={EQ_BANDS[index]} className="flex flex-col items-center flex-1 min-w-0 h-full z-10">
             {/* Slider container */}
-            <div className="relative flex-1 w-full flex items-center justify-center">
+            <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden">
               <input
                 type="range"
                 min={EQ_MIN_GAIN}
@@ -55,7 +55,7 @@ export function Equalizer({ bands, onChange, disabled = false }: EqualizerProps)
               />
             </div>
             {/* Frequency label */}
-            <span className="text-[10px] text-dark-400 mt-1 font-mono">
+            <span className="text-[10px] text-dark-400 mt-1 font-mono whitespace-nowrap">
               {formatFrequency(EQ_BANDS[index])}
             </span>
           </div>
