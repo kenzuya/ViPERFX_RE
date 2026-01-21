@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ViperController, ViperModule, ViperEffectState, defaultEffectState } from '../types/viper';
 
+interface ViperModuleFactory {
+  (options?: { locateFile?: (path: string) => string }): Promise<ViperModule>;
+}
+
 declare global {
   interface Window {
-    ViperModule: () => Promise<ViperModule>;
+    ViperModule: ViperModuleFactory;
   }
 }
 
@@ -81,7 +85,15 @@ export function useViperAudio(): UseViperAudioResult {
           throw new Error('ViPER WASM module not found. Please build the WASM module first.');
         }
 
-        const module = await window.ViperModule();
+        // Initialize module with locateFile to help find the WASM binary
+        const module = await window.ViperModule({
+          locateFile: (path: string) => {
+            if (path.endsWith('.wasm')) {
+              return '/wasm/viper4web.wasm';
+            }
+            return '/wasm/' + path;
+          }
+        });
         viperModuleRef.current = module;
 
         const controller = new module.ViperController();

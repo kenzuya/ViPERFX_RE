@@ -40,8 +40,14 @@ emmake make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 echo ""
 echo "Copying output files..."
 mkdir -p "$OUTPUT_DIR"
-cp viper4web.js "$OUTPUT_DIR/"
-cp viper4web.wasm "$OUTPUT_DIR/"
+cp "$BUILD_DIR/viper4web.js" "$OUTPUT_DIR/"
+cp "$BUILD_DIR/viper4web.wasm" "$OUTPUT_DIR/"
+
+# Verify files exist
+if [ ! -f "$OUTPUT_DIR/viper4web.js" ] || [ ! -f "$OUTPUT_DIR/viper4web.wasm" ]; then
+    echo "Error: Failed to copy output files!"
+    exit 1
+fi
 
 echo ""
 echo "================================================"
