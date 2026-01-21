@@ -38,6 +38,7 @@ export interface UseViperAudioResult {
   updateEffect: <K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => void;
   updateEqualizerBand: (bandIndex: number, gain: number) => void;
   resetEffects: () => void;
+  clearError: () => void;
 
   // Queue actions
   addToQueue: (files: File[]) => Promise<void>;
@@ -795,12 +796,20 @@ export function useViperAudio(): UseViperAudioResult {
     }
   }, []);
 
+  // Clear error
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   // Internal function to play a track by index (used by onended and playTrack)
   const playTrackInternal = useCallback(async (index: number) => {
     const queue = audioQueueRef.current;
     if (index < 0 || index >= queue.length) return;
 
     const item = queue[index];
+
+    // Clear any previous errors
+    setError(null);
 
     // Clean up existing playback
     cleanupPlayback();
@@ -1022,6 +1031,7 @@ export function useViperAudio(): UseViperAudioResult {
     updateEffect,
     updateEqualizerBand,
     resetEffects,
+    clearError,
 
     // Queue state and actions
     audioQueue,

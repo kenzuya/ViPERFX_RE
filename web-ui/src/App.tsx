@@ -22,6 +22,7 @@ function App() {
     updateEffect,
     updateEqualizerBand,
     resetEffects,
+    clearError,
     // Queue state and actions
     audioQueue,
     currentQueueIndex,
@@ -91,15 +92,30 @@ function App() {
         {/* Error Display - hidden when loading audio */}
         {error && !isLoadingAudio && (
           <div className="bg-red-900/50 border border-red-700 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 text-red-400">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-              </svg>
-              <span>{error}</span>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <div>
+                  <p className="text-red-400 font-medium">{error}</p>
+                  {error.includes('ViPER') && (
+                    <p className="text-sm text-red-300 mt-1">
+                      Make sure to build the WASM module first by running <code className="bg-dark-800 px-2 py-1 rounded">./build-web.sh</code>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={clearError}
+                className="text-red-400 hover:text-red-300 p-1 flex-shrink-0"
+                title="Dismiss"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <p className="text-sm text-red-300 mt-2">
-              Make sure to build the WASM module first by running <code className="bg-dark-800 px-2 py-1 rounded">./build-web.sh</code> in the project root.
-            </p>
           </div>
         )}
 
