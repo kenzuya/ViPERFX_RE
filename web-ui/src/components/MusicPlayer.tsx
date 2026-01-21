@@ -255,6 +255,7 @@ export function MusicPlayer({
         onPlayTrack={onPlayTrack}
         onRemoveTrack={onRemoveFromQueue}
         onClearQueue={onClearQueue}
+        onAddFiles={onAddToQueue}
       />
     </div>
   );

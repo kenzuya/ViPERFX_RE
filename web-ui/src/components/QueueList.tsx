@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react';
 import { AudioQueueItem } from '../types/viper';
 
 interface QueueListProps {
@@ -6,6 +7,7 @@ interface QueueListProps {
   onPlayTrack: (index: number) => void;
   onRemoveTrack: (id: string) => void;
   onClearQueue: () => void;
+  onAddFiles: (files: File[]) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -21,7 +23,21 @@ export function QueueList({
   onPlayTrack,
   onRemoveTrack,
   onClearQueue,
+  onAddFiles,
 }: QueueListProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const audioFiles = Array.from(files).filter(f => f.type.startsWith('audio/'));
+      if (audioFiles.length > 0) {
+        onAddFiles(audioFiles);
+      }
+    }
+    e.target.value = '';
+  }, [onAddFiles]);
+
   if (queue.length === 0) {
     return (
       <div className="mt-4 p-4 bg-dark-800/50 rounded-xl border border-dark-700">
@@ -34,17 +50,39 @@ export function QueueList({
 
   return (
     <div className="mt-4 bg-dark-800/50 rounded-xl border border-dark-700 overflow-hidden">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        multiple
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-dark-700">
         <span className="text-sm text-dark-300">
           Queue ({queue.length} {queue.length === 1 ? 'track' : 'tracks'})
         </span>
-        <button
-          onClick={onClearQueue}
-          className="text-xs text-dark-400 hover:text-red-400 transition-colors"
-        >
-          Clear All
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="text-xs text-dark-400 hover:text-viper-400 transition-colors flex items-center gap-1"
+            title="Add files"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add
+          </button>
+          <button
+            onClick={onClearQueue}
+            className="text-xs text-dark-400 hover:text-red-400 transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
       </div>
 
       {/* Track list */}
