@@ -193,24 +193,24 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
   @apply appearance-none cursor-pointer;
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 24px;
+  width: 14px;
   height: 110px;
   background: linear-gradient(to top, #334155, #475569);
   border: 1px solid #64748b;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .eq-slider::-webkit-slider-runnable-track {
-  width: 6px;
+  width: 4px;
   height: 110px;
   background: transparent;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .eq-slider::-webkit-slider-thumb {
   @apply appearance-none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
   border: 2px solid #38bdf8;
@@ -228,15 +228,15 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
 }
 
 .eq-slider::-moz-range-track {
-  width: 6px;
+  width: 4px;
   height: 110px;
   background: transparent;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .eq-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
   border: 2px solid #38bdf8;
