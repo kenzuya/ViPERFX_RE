@@ -49,14 +49,14 @@ export function useViperAudio(): UseViperAudioResult {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
-  const processorMemoryRef = useRef<{ inputPtr: number; outputPtr: number } | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const workletReadyRef = useRef<boolean>(false);
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const isPlayingRef = useRef<boolean>(false);
 
-  // Initialize ViPER Module
+  // Initialize ViPER Module (for version info and main thread controller)
   useEffect(() => {
     const initViper = async () => {
       try {
@@ -113,15 +113,9 @@ export function useViperAudio(): UseViperAudioResult {
     initViper();
 
     return () => {
-      // Clean up processor memory
-      if (processorMemoryRef.current && viperModuleRef.current) {
-        viperModuleRef.current._free(processorMemoryRef.current.inputPtr);
-        viperModuleRef.current._free(processorMemoryRef.current.outputPtr);
-        processorMemoryRef.current = null;
-      }
-      if (processorNodeRef.current) {
-        processorNodeRef.current.disconnect();
-        processorNodeRef.current = null;
+      if (workletNodeRef.current) {
+        workletNodeRef.current.disconnect();
+        workletNodeRef.current = null;
       }
       if (viperControllerRef.current) {
         viperControllerRef.current.delete();
@@ -157,6 +151,73 @@ export function useViperAudio(): UseViperAudioResult {
     };
   }, [isPlaying, updateTime]);
 
+  // Initialize AudioWorklet
+  const initAudioWorklet = useCallback(async (ctx: AudioContext) => {
+    if (workletReadyRef.current && workletNodeRef.current) {
+      return workletNodeRef.current;
+    }
+
+    try {
+      // Register the worklet processor
+      await ctx.audioWorklet.addModule('/viper-worklet-processor.js');
+
+      // Create the worklet node
+      const workletNode = new AudioWorkletNode(ctx, 'viper-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers',
+      });
+
+      // Handle messages from worklet
+      workletNode.port.onmessage = (event) => {
+        const data = event.data;
+        if (data.type === 'initialized') {
+          if (data.success) {
+            console.log('[ViPER] AudioWorklet initialized successfully');
+            workletReadyRef.current = true;
+          } else {
+            console.error('[ViPER] AudioWorklet initialization failed:', data.error);
+          }
+        }
+      };
+
+      // Initialize the worklet with WASM module
+      workletNode.port.postMessage({
+        type: 'init',
+        wasmUrl: '/wasm/viper4web.js'
+      });
+
+      // Set sample rate
+      workletNode.port.postMessage({
+        type: 'setSampleRate',
+        value: ctx.sampleRate
+      });
+
+      workletNodeRef.current = workletNode;
+
+      // Wait for initialization
+      await new Promise<void>((resolve) => {
+        const checkReady = () => {
+          if (workletReadyRef.current) {
+            resolve();
+          } else {
+            setTimeout(checkReady, 50);
+          }
+        };
+        // Give it some time then resolve anyway (fallback to main thread processing)
+        setTimeout(() => resolve(), 2000);
+        checkReady();
+      });
+
+      return workletNode;
+    } catch (err) {
+      console.error('[ViPER] Failed to initialize AudioWorklet:', err);
+      throw err;
+    }
+  }, []);
+
   // Load audio file
   const loadAudioFile = useCallback(async (file: File) => {
     if (!viperControllerRef.current || !viperModuleRef.current) {
@@ -176,13 +237,24 @@ export function useViperAudio(): UseViperAudioResult {
         await audioContextRef.current.resume();
       }
 
+      // Initialize AudioWorklet if not already done
+      await initAudioWorklet(audioContextRef.current);
+
       // Decode audio file
       const arrayBuffer = await file.arrayBuffer();
       const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
       audioBufferRef.current = audioBuffer;
 
-      // Set sample rate in ViPER
+      // Set sample rate in main thread ViPER controller
       viperControllerRef.current.setSampleRate(audioBuffer.sampleRate);
+
+      // Also update worklet's sample rate
+      if (workletNodeRef.current) {
+        workletNodeRef.current.port.postMessage({
+          type: 'setSampleRate',
+          value: audioBuffer.sampleRate
+        });
+      }
 
       setDuration(audioBuffer.duration);
       setCurrentTime(0);
@@ -193,66 +265,7 @@ export function useViperAudio(): UseViperAudioResult {
       console.error('[ViPER] Error loading audio:', err);
       setError(err instanceof Error ? err.message : 'Failed to load audio file');
     }
-  }, []);
-
-  // Create a processor that applies ViPER effects
-  const createViperProcessor = useCallback(() => {
-    if (!audioContextRef.current || !viperControllerRef.current || !viperModuleRef.current) {
-      return null;
-    }
-
-    // Clean up existing processor first
-    if (processorMemoryRef.current && viperModuleRef.current) {
-      viperModuleRef.current._free(processorMemoryRef.current.inputPtr);
-      viperModuleRef.current._free(processorMemoryRef.current.outputPtr);
-      processorMemoryRef.current = null;
-    }
-    if (processorNodeRef.current) {
-      processorNodeRef.current.disconnect();
-      processorNodeRef.current = null;
-    }
-
-    const ctx = audioContextRef.current;
-    const viper = viperControllerRef.current;
-    const module = viperModuleRef.current;
-    const bufferSize = 2048;
-
-    // Create a ScriptProcessorNode (deprecated but widely supported)
-    // In production, you'd use AudioWorklet
-    const processor = ctx.createScriptProcessor(bufferSize, 2, 2);
-
-    // Allocate memory for input and output
-    const inputPtr = module._malloc(bufferSize * 2 * 4); // stereo float32
-    const outputPtr = module._malloc(bufferSize * 2 * 4);
-
-    // Store memory pointers for cleanup
-    processorMemoryRef.current = { inputPtr, outputPtr };
-    processorNodeRef.current = processor;
-
-    processor.onaudioprocess = (event) => {
-      const inputL = event.inputBuffer.getChannelData(0);
-      const inputR = event.inputBuffer.getChannelData(1);
-      const outputL = event.outputBuffer.getChannelData(0);
-      const outputR = event.outputBuffer.getChannelData(1);
-
-      // Interleave input samples using setValue (more reliable with embind)
-      for (let i = 0; i < bufferSize; i++) {
-        module.setValue(inputPtr + (i * 2) * 4, inputL[i], 'float');
-        module.setValue(inputPtr + (i * 2 + 1) * 4, inputR[i], 'float');
-      }
-
-      // Process through ViPER
-      viper.process(inputPtr, bufferSize, outputPtr);
-
-      // Deinterleave output samples using getValue
-      for (let i = 0; i < bufferSize; i++) {
-        outputL[i] = module.getValue(outputPtr + (i * 2) * 4, 'float');
-        outputR[i] = module.getValue(outputPtr + (i * 2 + 1) * 4, 'float');
-      }
-    };
-
-    return processor;
-  }, []);
+  }, [initAudioWorklet]);
 
   // Helper to clean up audio nodes
   const cleanupPlayback = useCallback(() => {
@@ -265,14 +278,10 @@ export function useViperAudio(): UseViperAudioResult {
       sourceNodeRef.current.disconnect();
       sourceNodeRef.current = null;
     }
-    if (processorNodeRef.current) {
-      processorNodeRef.current.disconnect();
-      // Don't null out - we'll reuse or recreate on next play
-    }
   }, []);
 
   // Play
-  const play = useCallback(() => {
+  const play = useCallback(async () => {
     if (!audioContextRef.current || !audioBufferRef.current) {
       setError('No audio loaded');
       return;
@@ -282,15 +291,52 @@ export function useViperAudio(): UseViperAudioResult {
     cleanupPlayback();
 
     const ctx = audioContextRef.current;
+
+    // Resume context if suspended
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
     const source = ctx.createBufferSource();
     source.buffer = audioBufferRef.current;
 
-    // Create processor
-    const processor = createViperProcessor();
-    if (processor) {
+    // Connect through worklet if available, otherwise direct
+    if (workletNodeRef.current && workletReadyRef.current) {
+      source.connect(workletNodeRef.current);
+      workletNodeRef.current.connect(ctx.destination);
+    } else if (viperControllerRef.current && viperModuleRef.current) {
+      // Fallback: process in main thread using ScriptProcessorNode
+      const module = viperModuleRef.current;
+      const viper = viperControllerRef.current;
+      const bufferSize = 2048;
+      const processor = ctx.createScriptProcessor(bufferSize, 2, 2);
+
+      const inputPtr = module._malloc(bufferSize * 2 * 4);
+      const outputPtr = module._malloc(bufferSize * 2 * 4);
+
+      processor.onaudioprocess = (event) => {
+        const inputL = event.inputBuffer.getChannelData(0);
+        const inputR = event.inputBuffer.getChannelData(1);
+        const outputL = event.outputBuffer.getChannelData(0);
+        const outputR = event.outputBuffer.getChannelData(1);
+
+        for (let i = 0; i < bufferSize; i++) {
+          module.setValue(inputPtr + (i * 2) * 4, inputL[i], 'float');
+          module.setValue(inputPtr + (i * 2 + 1) * 4, inputR[i], 'float');
+        }
+
+        viper.process(inputPtr, bufferSize, outputPtr);
+
+        for (let i = 0; i < bufferSize; i++) {
+          outputL[i] = module.getValue(outputPtr + (i * 2) * 4, 'float');
+          outputR[i] = module.getValue(outputPtr + (i * 2 + 1) * 4, 'float');
+        }
+      };
+
       source.connect(processor);
       processor.connect(ctx.destination);
     } else {
+      // No processing available, direct connection
       source.connect(ctx.destination);
     }
 
@@ -310,7 +356,7 @@ export function useViperAudio(): UseViperAudioResult {
 
     isPlayingRef.current = true;
     setIsPlaying(true);
-  }, [cleanupPlayback, createViperProcessor, duration]);
+  }, [cleanupPlayback, duration]);
 
   // Pause
   const pause = useCallback(() => {
@@ -347,37 +393,22 @@ export function useViperAudio(): UseViperAudioResult {
     if (wasPlaying) {
       // Use setTimeout to ensure state is updated before playing again
       setTimeout(() => {
-        if (audioContextRef.current && audioBufferRef.current) {
-          const ctx = audioContextRef.current;
-          const source = ctx.createBufferSource();
-          source.buffer = audioBufferRef.current;
-
-          const processor = createViperProcessor();
-          if (processor) {
-            source.connect(processor);
-            processor.connect(ctx.destination);
-          } else {
-            source.connect(ctx.destination);
-          }
-
-          source.onended = () => {
-            if (isPlayingRef.current) {
-              isPlayingRef.current = false;
-              setIsPlaying(false);
-              setCurrentTime(duration);
-            }
-          };
-
-          startTimeRef.current = ctx.currentTime;
-          source.start(0, time);
-          sourceNodeRef.current = source;
-
-          isPlayingRef.current = true;
-          setIsPlaying(true);
-        }
+        play();
       }, 0);
     }
-  }, [cleanupPlayback, createViperProcessor, duration]);
+  }, [cleanupPlayback, play]);
+
+  // Send effect update to worklet
+  const sendEffectToWorklet = useCallback((method: string, value: unknown, args?: unknown[]) => {
+    if (workletNodeRef.current) {
+      workletNodeRef.current.port.postMessage({
+        type: 'setEffect',
+        method,
+        value,
+        args
+      });
+    }
+  }, []);
 
   // Update effect
   const updateEffect = useCallback(<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => {
@@ -386,184 +417,243 @@ export function useViperAudio(): UseViperAudioResult {
     const controller = viperControllerRef.current;
     if (!controller) return;
 
-    // Apply the effect change to the ViPER controller
+    // Apply the effect change to both main thread and worklet
     switch (key) {
       case 'enabled':
         controller.setEnabled(value as boolean);
+        sendEffectToWorklet('setEnabled', value);
         break;
       case 'convolverEnabled':
         controller.setConvolverEnabled(value as boolean);
+        sendEffectToWorklet('setConvolverEnabled', value);
         break;
       case 'convolverCrossChannel':
         controller.setConvolverCrossChannel(value as number);
+        sendEffectToWorklet('setConvolverCrossChannel', value);
         break;
       case 'vheEnabled':
         controller.setVHEEnabled(value as boolean);
+        sendEffectToWorklet('setVHEEnabled', value);
         break;
       case 'vheLevel':
         controller.setVHELevel(value as number);
+        sendEffectToWorklet('setVHELevel', value);
         break;
       case 'ddcEnabled':
         controller.setDDCEnabled(value as boolean);
+        sendEffectToWorklet('setDDCEnabled', value);
         break;
       case 'spectrumExtendEnabled':
         controller.setSpectrumExtendEnabled(value as boolean);
+        sendEffectToWorklet('setSpectrumExtendEnabled', value);
         break;
       case 'spectrumExtendBark':
         controller.setSpectrumExtendBark(value as number);
+        sendEffectToWorklet('setSpectrumExtendBark', value);
         break;
       case 'spectrumExtendBarkReconstruct':
         controller.setSpectrumExtendBarkReconstruct(value as number);
+        sendEffectToWorklet('setSpectrumExtendBarkReconstruct', value);
         break;
       case 'firEqualizerEnabled':
         controller.setFIREqualizerEnabled(value as boolean);
+        sendEffectToWorklet('setFIREqualizerEnabled', value);
         break;
       case 'fieldSurroundEnabled':
         controller.setFieldSurroundEnabled(value as boolean);
+        sendEffectToWorklet('setFieldSurroundEnabled', value);
         break;
       case 'fieldSurroundWidening':
         controller.setFieldSurroundWidening(value as number);
+        sendEffectToWorklet('setFieldSurroundWidening', value);
         break;
       case 'fieldSurroundMidImage':
         controller.setFieldSurroundMidImage(value as number);
+        sendEffectToWorklet('setFieldSurroundMidImage', value);
         break;
       case 'fieldSurroundDepth':
         controller.setFieldSurroundDepth(value as number);
+        sendEffectToWorklet('setFieldSurroundDepth', value);
         break;
       case 'diffSurroundEnabled':
         controller.setDiffSurroundEnabled(value as boolean);
+        sendEffectToWorklet('setDiffSurroundEnabled', value);
         break;
       case 'diffSurroundDelay':
         controller.setDiffSurroundDelay(value as number);
+        sendEffectToWorklet('setDiffSurroundDelay', value);
         break;
       case 'reverbEnabled':
         controller.setReverbEnabled(value as boolean);
+        sendEffectToWorklet('setReverbEnabled', value);
         break;
       case 'reverbRoomSize':
         controller.setReverbRoomSize(value as number);
+        sendEffectToWorklet('setReverbRoomSize', value);
         break;
       case 'reverbRoomWidth':
         controller.setReverbRoomWidth(value as number);
+        sendEffectToWorklet('setReverbRoomWidth', value);
         break;
       case 'reverbDampening':
         controller.setReverbDampening(value as number);
+        sendEffectToWorklet('setReverbDampening', value);
         break;
       case 'reverbWetSignal':
         controller.setReverbWetSignal(value as number);
+        sendEffectToWorklet('setReverbWetSignal', value);
         break;
       case 'reverbDrySignal':
         controller.setReverbDrySignal(value as number);
+        sendEffectToWorklet('setReverbDrySignal', value);
         break;
       case 'agcEnabled':
         controller.setAGCEnabled(value as boolean);
+        sendEffectToWorklet('setAGCEnabled', value);
         break;
       case 'agcRatio':
         controller.setAGCRatio(value as number);
+        sendEffectToWorklet('setAGCRatio', value);
         break;
       case 'agcVolume':
         controller.setAGCVolume(value as number);
+        sendEffectToWorklet('setAGCVolume', value);
         break;
       case 'agcMaxScaler':
         controller.setAGCMaxScaler(value as number);
+        sendEffectToWorklet('setAGCMaxScaler', value);
         break;
       case 'dynamicSystemEnabled':
         controller.setDynamicSystemEnabled(value as boolean);
+        sendEffectToWorklet('setDynamicSystemEnabled', value);
         break;
       case 'dynamicSystemStrength':
         controller.setDynamicSystemStrength(value as number);
+        sendEffectToWorklet('setDynamicSystemStrength', value);
         break;
       case 'viperBassEnabled':
         controller.setViperBassEnabled(value as boolean);
+        sendEffectToWorklet('setViperBassEnabled', value);
         break;
       case 'viperBassMode':
         controller.setViperBassMode(value as number);
+        sendEffectToWorklet('setViperBassMode', value);
         break;
       case 'viperBassFrequency':
         controller.setViperBassFrequency(value as number);
+        sendEffectToWorklet('setViperBassFrequency', value);
         break;
       case 'viperBassGain':
         controller.setViperBassGain(value as number);
+        sendEffectToWorklet('setViperBassGain', value);
         break;
       case 'viperClarityEnabled':
         controller.setViperClarityEnabled(value as boolean);
+        sendEffectToWorklet('setViperClarityEnabled', value);
         break;
       case 'viperClarityMode':
         controller.setViperClarityMode(value as number);
+        sendEffectToWorklet('setViperClarityMode', value);
         break;
       case 'viperClarityGain':
         controller.setViperClarityGain(value as number);
+        sendEffectToWorklet('setViperClarityGain', value);
         break;
       case 'cureEnabled':
         controller.setCureEnabled(value as boolean);
+        sendEffectToWorklet('setCureEnabled', value);
         break;
       case 'cureLevel':
         controller.setCureLevel(value as number);
+        sendEffectToWorklet('setCureLevel', value);
         break;
       case 'tubeSimulatorEnabled':
         controller.setTubeSimulatorEnabled(value as boolean);
+        sendEffectToWorklet('setTubeSimulatorEnabled', value);
         break;
       case 'analogXEnabled':
         controller.setAnalogXEnabled(value as boolean);
+        sendEffectToWorklet('setAnalogXEnabled', value);
         break;
       case 'analogXMode':
         controller.setAnalogXMode(value as number);
+        sendEffectToWorklet('setAnalogXMode', value);
         break;
       case 'outputVolume':
         controller.setOutputVolume(value as number);
+        sendEffectToWorklet('setOutputVolume', value);
         break;
       case 'outputPan':
         controller.setOutputPan(value as number);
+        sendEffectToWorklet('setOutputPan', value);
         break;
       case 'limiterThreshold':
         controller.setLimiterThreshold(value as number);
+        sendEffectToWorklet('setLimiterThreshold', value);
         break;
       case 'speakerOptimizationEnabled':
         controller.setSpeakerOptimizationEnabled(value as boolean);
+        sendEffectToWorklet('setSpeakerOptimizationEnabled', value);
         break;
       case 'fetCompressorEnabled':
         controller.setFETCompressorEnabled(value as boolean);
+        sendEffectToWorklet('setFETCompressorEnabled', value);
         break;
       case 'fetCompressorThreshold':
         controller.setFETCompressorThreshold(value as number);
+        sendEffectToWorklet('setFETCompressorThreshold', value);
         break;
       case 'fetCompressorRatio':
         controller.setFETCompressorRatio(value as number);
+        sendEffectToWorklet('setFETCompressorRatio', value);
         break;
       case 'fetCompressorKnee':
         controller.setFETCompressorKnee(value as number);
+        sendEffectToWorklet('setFETCompressorKnee', value);
         break;
       case 'fetCompressorAutoKnee':
         controller.setFETCompressorAutoKnee(value as boolean);
+        sendEffectToWorklet('setFETCompressorAutoKnee', value);
         break;
       case 'fetCompressorGain':
         controller.setFETCompressorGain(value as number);
+        sendEffectToWorklet('setFETCompressorGain', value);
         break;
       case 'fetCompressorAutoGain':
         controller.setFETCompressorAutoGain(value as boolean);
+        sendEffectToWorklet('setFETCompressorAutoGain', value);
         break;
       case 'fetCompressorAttack':
         controller.setFETCompressorAttack(value as number);
+        sendEffectToWorklet('setFETCompressorAttack', value);
         break;
       case 'fetCompressorAutoAttack':
         controller.setFETCompressorAutoAttack(value as boolean);
+        sendEffectToWorklet('setFETCompressorAutoAttack', value);
         break;
       case 'fetCompressorRelease':
         controller.setFETCompressorRelease(value as number);
+        sendEffectToWorklet('setFETCompressorRelease', value);
         break;
       case 'fetCompressorAutoRelease':
         controller.setFETCompressorAutoRelease(value as boolean);
+        sendEffectToWorklet('setFETCompressorAutoRelease', value);
         break;
       case 'fetCompressorNoClip':
         controller.setFETCompressorNoClip(value as boolean);
+        sendEffectToWorklet('setFETCompressorNoClip', value);
         break;
     }
-  }, []);
+  }, [sendEffectToWorklet]);
 
   // Reset effects
   const resetEffects = useCallback(() => {
     setEffectState(defaultEffectState);
     if (viperControllerRef.current) {
       viperControllerRef.current.resetAllEffects();
+    }
+    if (workletNodeRef.current) {
+      workletNodeRef.current.port.postMessage({ type: 'resetEffects' });
     }
   }, []);
 
