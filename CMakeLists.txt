@@ -103,6 +103,7 @@ if(EMSCRIPTEN)
                 -s NO_EXIT_RUNTIME=1 \
                 -s SINGLE_FILE=0 \
                 --bind \
+                --emit-tsd viper4web.d.ts \
                 -O3 \
                 -flto \
             ")

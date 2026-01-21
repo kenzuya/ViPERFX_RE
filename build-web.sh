@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build-web"
 OUTPUT_DIR="$SCRIPT_DIR/web-ui/public/wasm"
+TYPES_DIR="$SCRIPT_DIR/web-ui/src/types"
 
 echo "================================================"
 echo "Building ViPER4Web (Emscripten/WebAssembly)"
@@ -40,8 +41,19 @@ emmake make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 echo ""
 echo "Copying output files..."
 mkdir -p "$OUTPUT_DIR"
+mkdir -p "$TYPES_DIR"
+
 cp "$BUILD_DIR/viper4web.js" "$OUTPUT_DIR/"
 cp "$BUILD_DIR/viper4web.wasm" "$OUTPUT_DIR/"
+
+# Copy TypeScript declaration file if generated
+if [ -f "$BUILD_DIR/viper4web.d.ts" ]; then
+    cp "$BUILD_DIR/viper4web.d.ts" "$OUTPUT_DIR/"
+    cp "$BUILD_DIR/viper4web.d.ts" "$TYPES_DIR/"
+    echo "TypeScript declarations generated: viper4web.d.ts"
+else
+    echo "Warning: TypeScript declaration file not generated"
+fi
 
 # Verify files exist
 if [ ! -f "$OUTPUT_DIR/viper4web.js" ] || [ ! -f "$OUTPUT_DIR/viper4web.wasm" ]; then
@@ -55,4 +67,6 @@ echo "Build complete!"
 echo "Output files:"
 echo "  - $OUTPUT_DIR/viper4web.js"
 echo "  - $OUTPUT_DIR/viper4web.wasm"
+echo "  - $OUTPUT_DIR/viper4web.d.ts"
+echo "  - $TYPES_DIR/viper4web.d.ts"
 echo "================================================"
