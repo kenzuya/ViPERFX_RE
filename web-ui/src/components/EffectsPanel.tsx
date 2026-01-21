@@ -1,9 +1,11 @@
 import { ViperEffectState } from '../types/viper';
 import { EffectCard, Slider, Select } from './Controls';
+import { Equalizer } from './Equalizer';
 
 interface EffectsPanelProps {
   effectState: ViperEffectState;
   onUpdateEffect: <K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => void;
+  onUpdateEqualizerBand: (bandIndex: number, gain: number) => void;
 }
 
 // Icons as components
@@ -44,9 +46,31 @@ const VolumeIcon = () => (
   </svg>
 );
 
-export function EffectsPanel({ effectState, onUpdateEffect }: EffectsPanelProps) {
+const EqualizerIcon = () => (
+  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z"/>
+  </svg>
+);
+
+export function EffectsPanel({ effectState, onUpdateEffect, onUpdateEqualizerBand }: EffectsPanelProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="space-y-6">
+      {/* FIR Equalizer - Full width */}
+      <EffectCard
+        title="10-Band Equalizer"
+        enabled={effectState.firEqualizerEnabled}
+        onToggle={(enabled) => onUpdateEffect('firEqualizerEnabled', enabled)}
+        icon={<EqualizerIcon />}
+      >
+        <Equalizer
+          bands={effectState.firEqualizerBands}
+          onChange={onUpdateEqualizerBand}
+          disabled={!effectState.firEqualizerEnabled}
+        />
+      </EffectCard>
+
+      {/* Other effects grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* ViPER Bass */}
       <EffectCard
         title="ViPER Bass"
@@ -380,6 +404,7 @@ export function EffectsPanel({ effectState, onUpdateEffect }: EffectsPanelProps)
           onChange={(value) => onUpdateEffect('limiterThreshold', value)}
         />
       </EffectCard>
+    </div>
     </div>
   );
 }

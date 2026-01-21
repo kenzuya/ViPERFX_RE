@@ -21,6 +21,7 @@ function App() {
     stop,
     seek,
     updateEffect,
+    updateEqualizerBand,
     resetEffects,
   } = useViperAudio();
 
@@ -115,6 +116,7 @@ function App() {
           <EffectsPanel
             effectState={effectState}
             onUpdateEffect={updateEffect}
+            onUpdateEqualizerBand={updateEqualizerBand}
           />
         </section>
       </main>

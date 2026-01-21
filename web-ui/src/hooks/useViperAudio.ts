@@ -31,6 +31,7 @@ export interface UseViperAudioResult {
   stop: () => void;
   seek: (time: number) => void;
   updateEffect: <K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) => void;
+  updateEqualizerBand: (bandIndex: number, gain: number) => void;
   resetEffects: () => void;
 }
 
@@ -170,6 +171,10 @@ export function useViperAudio(): UseViperAudioResult {
     controller.setSpectrumExtendBark(state.spectrumExtendBark);
     controller.setSpectrumExtendBarkReconstruct(state.spectrumExtendBarkReconstruct);
     controller.setFIREqualizerEnabled(state.firEqualizerEnabled);
+    // Apply saved equalizer bands
+    state.firEqualizerBands.forEach((gain, index) => {
+      controller.setFIREqualizerBand(index, gain);
+    });
     controller.setFieldSurroundEnabled(state.fieldSurroundEnabled);
     controller.setFieldSurroundWidening(state.fieldSurroundWidening);
     controller.setFieldSurroundMidImage(state.fieldSurroundMidImage);
@@ -520,6 +525,12 @@ export function useViperAudio(): UseViperAudioResult {
       case 'firEqualizerEnabled':
         controller.setFIREqualizerEnabled(value as boolean);
         break;
+      case 'firEqualizerBands':
+        // Update all bands when the array is replaced
+        (value as number[]).forEach((gain, index) => {
+          controller.setFIREqualizerBand(index, gain);
+        });
+        break;
       case 'fieldSurroundEnabled':
         controller.setFieldSurroundEnabled(value as boolean);
         break;
@@ -661,6 +672,20 @@ export function useViperAudio(): UseViperAudioResult {
     }
   }, []);
 
+  // Update a single equalizer band
+  const updateEqualizerBand = useCallback((bandIndex: number, gain: number) => {
+    setEffectState(prev => {
+      const newBands = [...prev.firEqualizerBands];
+      newBands[bandIndex] = gain;
+      return { ...prev, firEqualizerBands: newBands };
+    });
+
+    const controller = viperControllerRef.current;
+    if (controller) {
+      controller.setFIREqualizerBand(bandIndex, gain);
+    }
+  }, []);
+
   // Reset effects
   const resetEffects = useCallback(() => {
     setEffectState(defaultEffectState);
@@ -686,6 +711,7 @@ export function useViperAudio(): UseViperAudioResult {
     stop,
     seek,
     updateEffect,
+    updateEqualizerBand,
     resetEffects,
   };
 }
