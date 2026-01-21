@@ -165,8 +165,10 @@ public:
         viper.DispatchCommand(PARAM_FIR_EQUALIZER_ENABLE, enable ? 1 : 0, 0, 0, 0, 0, nullptr);
     }
 
-    void setFIREqualizerBand(int band, int level) {
-        viper.DispatchCommand(PARAM_FIR_EQUALIZER_BAND_LEVEL, band, level, 0, 0, 0, nullptr);
+    void setFIREqualizerBand(int band, float level) {
+        // Level is in dB (-12 to +12), needs to be scaled by 100 for ViPER
+        // ViPER divides by 100, then IIRFilter uses level/20 as exponent for 10^x
+        viper.DispatchCommand(PARAM_FIR_EQUALIZER_BAND_LEVEL, band, static_cast<int>(level * 100), 0, 0, 0, nullptr);
     }
 
     // ==================== Field Surround (Colorful Music) ====================

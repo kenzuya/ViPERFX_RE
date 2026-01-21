@@ -283,31 +283,31 @@ export const defaultEffectState: ViperEffectState = {
   convolverCrossChannel: 0,
 
   vheEnabled: false,
-  vheLevel: 0,
+  vheLevel: 2, // Medium level (0-4)
 
   ddcEnabled: false,
 
   spectrumExtendEnabled: false,
-  spectrumExtendBark: 0,
-  spectrumExtendBarkReconstruct: 0,
+  spectrumExtendBark: 10,
+  spectrumExtendBarkReconstruct: 10,
 
   firEqualizerEnabled: false,
   firEqualizerBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 
   fieldSurroundEnabled: false,
-  fieldSurroundWidening: 0,
-  fieldSurroundMidImage: 0,
-  fieldSurroundDepth: 0,
+  fieldSurroundWidening: 50,
+  fieldSurroundMidImage: 50,
+  fieldSurroundDepth: 50,
 
   diffSurroundEnabled: false,
-  diffSurroundDelay: 0,
+  diffSurroundDelay: 20,
 
   reverbEnabled: false,
   reverbRoomSize: 50,
-  reverbRoomWidth: 50,
+  reverbRoomWidth: 70,
   reverbDampening: 50,
-  reverbWetSignal: 0,
-  reverbDrySignal: 100,
+  reverbWetSignal: 30, // Was 0 - need some wet signal to hear reverb
+  reverbDrySignal: 70,
 
   agcEnabled: false,
   agcRatio: 50,
@@ -315,21 +315,21 @@ export const defaultEffectState: ViperEffectState = {
   agcMaxScaler: 400,
 
   dynamicSystemEnabled: false,
-  dynamicSystemSideGain1: 0,
-  dynamicSystemSideGain2: 0,
-  dynamicSystemStrength: 0,
+  dynamicSystemSideGain1: 50,
+  dynamicSystemSideGain2: 50,
+  dynamicSystemStrength: 50,
 
   viperBassEnabled: false,
   viperBassMode: 0,
   viperBassFrequency: 40,
-  viperBassGain: 0,
+  viperBassGain: 50, // Was 0 - need gain to hear bass boost
 
   viperClarityEnabled: false,
   viperClarityMode: 0,
-  viperClarityGain: 0,
+  viperClarityGain: 50, // Was 0 - need gain to hear clarity effect
 
   cureEnabled: false,
-  cureLevel: 0,
+  cureLevel: 1, // Medium crossfeed
 
   tubeSimulatorEnabled: false,
 
