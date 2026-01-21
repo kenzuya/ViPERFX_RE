@@ -412,6 +412,11 @@ export function useViperAudio(): UseViperAudioResult {
       await initAudioWorklet(ctx);
     }
 
+    // Signal worklet that playback is starting
+    if (workletNodeRef.current) {
+      workletNodeRef.current.port.postMessage({ type: 'start' });
+    }
+
     const source = ctx.createBufferSource();
     source.buffer = audioBufferRef.current;
 
