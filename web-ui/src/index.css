@@ -193,28 +193,29 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
   @apply appearance-none cursor-pointer;
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 14px;
+  width: 6px;
   height: 110px;
   background: linear-gradient(to top, #334155, #475569);
   border: 1px solid #64748b;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .eq-slider::-webkit-slider-runnable-track {
-  width: 4px;
+  width: 6px;
   height: 110px;
   background: transparent;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .eq-slider::-webkit-slider-thumb {
   @apply appearance-none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
   border: 2px solid #38bdf8;
   box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+  margin-left: -5px;
   cursor: grab;
 }
 
@@ -228,15 +229,15 @@ input[type="range"]:not(.slider-input):not(.eq-slider)::-moz-range-thumb {
 }
 
 .eq-slider::-moz-range-track {
-  width: 4px;
+  width: 6px;
   height: 110px;
   background: transparent;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .eq-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
   border: 2px solid #38bdf8;
