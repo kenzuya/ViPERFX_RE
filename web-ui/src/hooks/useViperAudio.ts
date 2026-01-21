@@ -60,8 +60,8 @@ export function useViperAudio(): UseViperAudioResult {
   const animationFrameRef = useRef<number | null>(null);
   const isPlayingRef = useRef<boolean>(false);
 
-  // Buffer size for WASM processing
-  const BUFFER_SIZE = 128; // AudioWorklet render quantum
+  // Buffer size for WASM processing - must match worklet's inputChunkSize
+  const BUFFER_SIZE = 512;
 
   // Initialize ViPER Module
   useEffect(() => {
