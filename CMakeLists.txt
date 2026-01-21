@@ -98,6 +98,7 @@ if(EMSCRIPTEN)
                 -s INITIAL_MEMORY=33554432 \
                 -s MAXIMUM_MEMORY=268435456 \
                 -s ENVIRONMENT='web,worker' \
+                -s EXPORTED_FUNCTIONS=['_malloc','_free'] \
                 -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','setValue','getValue'] \
                 -s NO_EXIT_RUNTIME=1 \
                 -s SINGLE_FILE=0 \
