@@ -161,4 +161,4 @@ logs/security/
 
 # Viper4Web
 build-web
-public
+/web-ui/public/wasm
