@@ -60,8 +60,10 @@ export interface ViperController {
 
   // Dynamic System
   setDynamicSystemEnabled(enable: boolean): void;
+  setDynamicSystemXCoeffs(lowFreq: number, highFreq: number): void;
+  setDynamicSystemYCoeffs(lowFreq: number, highFreq: number): void;
   setDynamicSystemSideGain(sideGain1: number, sideGain2: number): void;
-  setDynamicSystemStrength(strength: number): void;
+  setDynamicSystemBassGain(gain: number): void;
 
   // ViPER Bass
   setViperBassEnabled(enable: boolean): void;
@@ -177,9 +179,13 @@ export interface ViperEffectState {
 
   // Dynamic System
   dynamicSystemEnabled: boolean;
-  dynamicSystemSideGain1: number;
-  dynamicSystemSideGain2: number;
-  dynamicSystemStrength: number;
+  dynamicSystemXLowFreq: number;
+  dynamicSystemXHighFreq: number;
+  dynamicSystemYLowFreq: number;
+  dynamicSystemYHighFreq: number;
+  dynamicSystemSideGainX: number;
+  dynamicSystemSideGainY: number;
+  dynamicSystemBassGain: number;
 
   // ViPER Bass
   viperBassEnabled: boolean;
@@ -315,9 +321,13 @@ export const defaultEffectState: ViperEffectState = {
   agcMaxScaler: 400,
 
   dynamicSystemEnabled: false,
-  dynamicSystemSideGain1: 50,
-  dynamicSystemSideGain2: 50,
-  dynamicSystemStrength: 50,
+  dynamicSystemXLowFreq: 20,     // Low pass filter X - low frequency (Hz)
+  dynamicSystemXHighFreq: 80,    // Low pass filter X - high frequency (Hz)
+  dynamicSystemYLowFreq: 80,     // Low pass filter Y - low frequency (Hz)
+  dynamicSystemYHighFreq: 300,   // Low pass filter Y - high frequency (Hz)
+  dynamicSystemSideGainX: 50,    // Side gain for X channel (0-100)
+  dynamicSystemSideGainY: 50,    // Side gain for Y channel (0-100)
+  dynamicSystemBassGain: 50,     // Dynamic bass gain (0-100)
 
   viperBassEnabled: false,
   viperBassMode: 0,

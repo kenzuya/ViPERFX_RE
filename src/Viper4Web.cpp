@@ -249,11 +249,22 @@ public:
         viper.DispatchCommand(PARAM_DYNAMIC_SYSTEM_ENABLE, enable ? 1 : 0, 0, 0, 0, 0, nullptr);
     }
 
+    void setDynamicSystemXCoeffs(int lowFreq, int highFreq) {
+        // X filter pass frequencies in Hz
+        viper.DispatchCommand(PARAM_DYNAMIC_SYSTEM_X_COEFFICIENTS, lowFreq, highFreq, 0, 0, 0, nullptr);
+    }
+
+    void setDynamicSystemYCoeffs(int lowFreq, int highFreq) {
+        // Y filter pass frequencies in Hz
+        viper.DispatchCommand(PARAM_DYNAMIC_SYSTEM_Y_COEFFICIENTS, lowFreq, highFreq, 0, 0, 0, nullptr);
+    }
+
     void setDynamicSystemSideGain(int sideGain1, int sideGain2) {
         viper.DispatchCommand(PARAM_DYNAMIC_SYSTEM_SIDE_GAIN, sideGain1, sideGain2, 0, 0, 0, nullptr);
     }
 
-    void setDynamicSystemStrength(int strength) {
+    void setDynamicSystemBassGain(int strength) {
+        // Bass gain/strength (0-100, divided by 100 internally)
         viper.DispatchCommand(PARAM_DYNAMIC_SYSTEM_STRENGTH, strength, 0, 0, 0, 0, nullptr);
     }
 
@@ -471,8 +482,10 @@ EMSCRIPTEN_BINDINGS(viper_controller) {
 
         // Dynamic System
         .function("setDynamicSystemEnabled", &ViperController::setDynamicSystemEnabled)
+        .function("setDynamicSystemXCoeffs", &ViperController::setDynamicSystemXCoeffs)
+        .function("setDynamicSystemYCoeffs", &ViperController::setDynamicSystemYCoeffs)
         .function("setDynamicSystemSideGain", &ViperController::setDynamicSystemSideGain)
-        .function("setDynamicSystemStrength", &ViperController::setDynamicSystemStrength)
+        .function("setDynamicSystemBassGain", &ViperController::setDynamicSystemBassGain)
 
         // ViPER Bass
         .function("setViperBassEnabled", &ViperController::setViperBassEnabled)

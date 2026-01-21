@@ -192,7 +192,10 @@ export function useViperAudio(): UseViperAudioResult {
     controller.setAGCVolume(state.agcVolume);
     controller.setAGCMaxScaler(state.agcMaxScaler);
     controller.setDynamicSystemEnabled(state.dynamicSystemEnabled);
-    controller.setDynamicSystemStrength(state.dynamicSystemStrength);
+    controller.setDynamicSystemXCoeffs(state.dynamicSystemXLowFreq, state.dynamicSystemXHighFreq);
+    controller.setDynamicSystemYCoeffs(state.dynamicSystemYLowFreq, state.dynamicSystemYHighFreq);
+    controller.setDynamicSystemSideGain(state.dynamicSystemSideGainX, state.dynamicSystemSideGainY);
+    controller.setDynamicSystemBassGain(state.dynamicSystemBassGain);
     controller.setViperBassEnabled(state.viperBassEnabled);
     controller.setViperBassMode(state.viperBassMode);
     controller.setViperBassFrequency(state.viperBassFrequency);
@@ -587,8 +590,38 @@ export function useViperAudio(): UseViperAudioResult {
       case 'dynamicSystemEnabled':
         controller.setDynamicSystemEnabled(value as boolean);
         break;
-      case 'dynamicSystemStrength':
-        controller.setDynamicSystemStrength(value as number);
+      case 'dynamicSystemXLowFreq':
+      case 'dynamicSystemXHighFreq':
+        // Need to update both X coeffs together
+        setEffectState(prev => {
+          const xLow = key === 'dynamicSystemXLowFreq' ? (value as number) : prev.dynamicSystemXLowFreq;
+          const xHigh = key === 'dynamicSystemXHighFreq' ? (value as number) : prev.dynamicSystemXHighFreq;
+          controller.setDynamicSystemXCoeffs(xLow, xHigh);
+          return prev;
+        });
+        break;
+      case 'dynamicSystemYLowFreq':
+      case 'dynamicSystemYHighFreq':
+        // Need to update both Y coeffs together
+        setEffectState(prev => {
+          const yLow = key === 'dynamicSystemYLowFreq' ? (value as number) : prev.dynamicSystemYLowFreq;
+          const yHigh = key === 'dynamicSystemYHighFreq' ? (value as number) : prev.dynamicSystemYHighFreq;
+          controller.setDynamicSystemYCoeffs(yLow, yHigh);
+          return prev;
+        });
+        break;
+      case 'dynamicSystemSideGainX':
+      case 'dynamicSystemSideGainY':
+        // Need to update both side gains together
+        setEffectState(prev => {
+          const gainX = key === 'dynamicSystemSideGainX' ? (value as number) : prev.dynamicSystemSideGainX;
+          const gainY = key === 'dynamicSystemSideGainY' ? (value as number) : prev.dynamicSystemSideGainY;
+          controller.setDynamicSystemSideGain(gainX, gainY);
+          return prev;
+        });
+        break;
+      case 'dynamicSystemBassGain':
+        controller.setDynamicSystemBassGain(value as number);
         break;
       case 'viperBassEnabled':
         controller.setViperBassEnabled(value as boolean);

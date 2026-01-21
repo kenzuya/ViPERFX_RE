@@ -52,6 +52,12 @@ const EqualizerIcon = () => (
   </svg>
 );
 
+const DynamicBassIcon = () => (
+  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 3v9.28a4.5 4.5 0 1 0 2 3.72V7h4V3h-6zM6 12h2v8H6zm4-4h2v12h-2zm8 0h2v12h-2z"/>
+  </svg>
+);
+
 export function EffectsPanel({ effectState, onUpdateEffect, onUpdateEqualizerBand }: EffectsPanelProps) {
   return (
     <div className="space-y-6">
@@ -130,6 +136,71 @@ export function EffectsPanel({ effectState, onUpdateEffect, onUpdateEqualizerBan
           max={100}
           unit="%"
           onChange={(value) => onUpdateEffect('viperClarityGain', value)}
+        />
+      </EffectCard>
+
+      {/* Dynamic System (Dynamic Bass) */}
+      <EffectCard
+        title="Dynamic Bass"
+        enabled={effectState.dynamicSystemEnabled}
+        onToggle={(enabled) => onUpdateEffect('dynamicSystemEnabled', enabled)}
+        icon={<DynamicBassIcon />}
+      >
+        <Slider
+          label="Bass Gain"
+          value={effectState.dynamicSystemBassGain}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(value) => onUpdateEffect('dynamicSystemBassGain', value)}
+        />
+        <Slider
+          label="X Side Gain"
+          value={effectState.dynamicSystemSideGainX}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(value) => onUpdateEffect('dynamicSystemSideGainX', value)}
+        />
+        <Slider
+          label="Y Side Gain"
+          value={effectState.dynamicSystemSideGainY}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(value) => onUpdateEffect('dynamicSystemSideGainY', value)}
+        />
+        <Slider
+          label="X Low Freq"
+          value={effectState.dynamicSystemXLowFreq}
+          min={10}
+          max={200}
+          unit="Hz"
+          onChange={(value) => onUpdateEffect('dynamicSystemXLowFreq', value)}
+        />
+        <Slider
+          label="X High Freq"
+          value={effectState.dynamicSystemXHighFreq}
+          min={50}
+          max={500}
+          unit="Hz"
+          onChange={(value) => onUpdateEffect('dynamicSystemXHighFreq', value)}
+        />
+        <Slider
+          label="Y Low Freq"
+          value={effectState.dynamicSystemYLowFreq}
+          min={50}
+          max={500}
+          unit="Hz"
+          onChange={(value) => onUpdateEffect('dynamicSystemYLowFreq', value)}
+        />
+        <Slider
+          label="Y High Freq"
+          value={effectState.dynamicSystemYHighFreq}
+          min={100}
+          max={1000}
+          unit="Hz"
+          onChange={(value) => onUpdateEffect('dynamicSystemYHighFreq', value)}
         />
       </EffectCard>
 
