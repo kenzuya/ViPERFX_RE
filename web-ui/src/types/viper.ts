@@ -108,7 +108,9 @@ export interface ViperController {
   setFETCompressorNoClip(enable: boolean): void;
 
   // Generic
-  setParameter(param: number, val1: number, val2?: number, val3?: number, val4?: number): void;
+  setParameter(param: number, val1: number, val2: number, val3: number, val4: number): void;
+  setParameter2(param: number, val1: number): void;
+  setParameter3(param: number, val1: number, val2: number): void;
 
   // Destructor
   delete(): void;
@@ -119,6 +121,8 @@ export interface ViperModule {
   _malloc(size: number): number;
   _free(ptr: number): void;
   HEAPF32: Float32Array;
+  HEAP8: Int8Array;
+  HEAPU8: Uint8Array;
   setValue(ptr: number, value: number, type: string): void;
   getValue(ptr: number, type: string): number;
 }

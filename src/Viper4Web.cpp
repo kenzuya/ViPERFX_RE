@@ -394,8 +394,16 @@ public:
      * Set a parameter by its ID
      * This is useful for advanced users who know the parameter IDs
      */
-    void setParameter(int param, int val1, int val2 = 0, int val3 = 0, int val4 = 0) {
+    void setParameter(int param, int val1, int val2, int val3, int val4) {
         viper.DispatchCommand(param, val1, val2, val3, val4, 0, nullptr);
+    }
+
+    void setParameter2(int param, int val1) {
+        viper.DispatchCommand(param, val1, 0, 0, 0, 0, nullptr);
+    }
+
+    void setParameter3(int param, int val1, int val2) {
+        viper.DispatchCommand(param, val1, val2, 0, 0, 0, nullptr);
     }
 };
 
@@ -509,7 +517,9 @@ EMSCRIPTEN_BINDINGS(viper_controller) {
         .function("setFETCompressorNoClip", &ViperController::setFETCompressorNoClip)
 
         // Generic
-        .function("setParameter", &ViperController::setParameter);
+        .function("setParameter", &ViperController::setParameter)
+        .function("setParameter2", &ViperController::setParameter2)
+        .function("setParameter3", &ViperController::setParameter3);
 }
 
 #endif // __EMSCRIPTEN__

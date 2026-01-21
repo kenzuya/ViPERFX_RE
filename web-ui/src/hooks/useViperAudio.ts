@@ -210,19 +210,19 @@ export function useViperAudio(): UseViperAudioResult {
       const outputL = event.outputBuffer.getChannelData(0);
       const outputR = event.outputBuffer.getChannelData(1);
 
-      // Interleave input samples
+      // Interleave input samples using setValue (more reliable with embind)
       for (let i = 0; i < bufferSize; i++) {
-        module.HEAPF32[(inputPtr >> 2) + i * 2] = inputL[i];
-        module.HEAPF32[(inputPtr >> 2) + i * 2 + 1] = inputR[i];
+        module.setValue(inputPtr + (i * 2) * 4, inputL[i], 'float');
+        module.setValue(inputPtr + (i * 2 + 1) * 4, inputR[i], 'float');
       }
 
       // Process through ViPER
       viper.process(inputPtr, bufferSize, outputPtr);
 
-      // Deinterleave output samples
+      // Deinterleave output samples using getValue
       for (let i = 0; i < bufferSize; i++) {
-        outputL[i] = module.HEAPF32[(outputPtr >> 2) + i * 2];
-        outputR[i] = module.HEAPF32[(outputPtr >> 2) + i * 2 + 1];
+        outputL[i] = module.getValue(outputPtr + (i * 2) * 4, 'float');
+        outputR[i] = module.getValue(outputPtr + (i * 2 + 1) * 4, 'float');
       }
     };
 
