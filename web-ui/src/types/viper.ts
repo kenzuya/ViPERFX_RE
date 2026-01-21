@@ -229,8 +229,18 @@ export interface ViperEffectState {
 // localStorage key for persisting effect state
 export const VIPER_STORAGE_KEY = 'viper4web-effect-state';
 
+// Check if localStorage is available (not during SSR)
+function isLocalStorageAvailable(): boolean {
+  try {
+    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  } catch {
+    return false;
+  }
+}
+
 // Save effect state to localStorage
 export function saveEffectState(state: ViperEffectState): void {
+  if (!isLocalStorageAvailable()) return;
   try {
     localStorage.setItem(VIPER_STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
@@ -240,6 +250,7 @@ export function saveEffectState(state: ViperEffectState): void {
 
 // Load effect state from localStorage
 export function loadEffectState(): ViperEffectState | null {
+  if (!isLocalStorageAvailable()) return null;
   try {
     const saved = localStorage.getItem(VIPER_STORAGE_KEY);
     if (saved) {
