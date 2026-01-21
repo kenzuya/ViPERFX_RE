@@ -8,7 +8,7 @@
  * Architecture:
  * 1. Worklet captures input audio and sends to main thread
  * 2. Main thread processes with WASM and sends back
- * 3. Worklet outputs ONLY the processed audio (never pass-through to avoid duplicates)
+ * 3. Worklet outputs the processed audio when enabled, or passes through input when disabled
  */
 
 class ViperWorkletProcessor extends AudioWorkletProcessor {
@@ -168,11 +168,29 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     const outputR = output[1] || output[0];
     const frameCount = outputL.length;
 
-    // Capture and send input to main thread
-    if (input && input[0] && input[0].length > 0 && this.isStarted) {
-      const inputL = input[0];
-      const inputR = input[1] || input[0];
+    const hasInput = input && input[0] && input[0].length > 0;
+    const inputL = hasInput ? input[0] : null;
+    const inputR = hasInput ? (input[1] || input[0]) : null;
 
+    // When disabled, pass through input audio directly
+    if (!this.isEnabled) {
+      if (hasInput) {
+        for (let i = 0; i < frameCount; i++) {
+          outputL[i] = inputL[i];
+          outputR[i] = inputR[i];
+        }
+      } else {
+        // No input available, output silence
+        for (let i = 0; i < frameCount; i++) {
+          outputL[i] = 0;
+          outputR[i] = 0;
+        }
+      }
+      return true;
+    }
+
+    // Capture and send input to main thread for processing
+    if (hasInput && this.isStarted) {
       for (let i = 0; i < inputL.length; i++) {
         this.inputBufferL[this.inputBufferIndex] = inputL[i];
         this.inputBufferR[this.inputBufferIndex] = inputR[i];
@@ -191,9 +209,8 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
       }
     }
 
-    // Output processed audio from ring buffer ONLY
-    // Never pass through input to avoid duplicates
-    if (this.isEnabled && this.hasPreBuffered && this.bufferedSamples >= frameCount) {
+    // Output processed audio from ring buffer
+    if (this.hasPreBuffered && this.bufferedSamples >= frameCount) {
       for (let i = 0; i < frameCount; i++) {
         let sampleL = this.ringBufferL[this.readIndex];
         let sampleR = this.ringBufferR[this.readIndex];
