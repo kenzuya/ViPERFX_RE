@@ -8,7 +8,9 @@
 
 #include "../log.h" // TODO: Remove this dependency
 
-#if defined(__arm__)
+#if defined(__EMSCRIPTEN__)
+#define VIPER_ARCHITECTURE "WASM"
+#elif defined(__arm__)
 #define VIPER_ARCHITECTURE "ARM"
 #elif defined(__aarch64__)
 #define VIPER_ARCHITECTURE "ARM64"
