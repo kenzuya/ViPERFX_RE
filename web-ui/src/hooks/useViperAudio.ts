@@ -89,6 +89,7 @@ export function useViperAudio(): UseViperAudioResult {
   const audioQueueRef = useRef<AudioQueueItem[]>([]);
   const currentQueueIndexRef = useRef<number>(-1);
   const repeatModeRef = useRef<RepeatMode>('off');
+  const effectStateRef = useRef<ViperEffectState>(effectState);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -102,6 +103,10 @@ export function useViperAudio(): UseViperAudioResult {
   useEffect(() => {
     repeatModeRef.current = repeatMode;
   }, [repeatMode]);
+
+  useEffect(() => {
+    effectStateRef.current = effectState;
+  }, [effectState]);
 
   // Buffer size for WASM processing - must match worklet's inputChunkSize
   const BUFFER_SIZE = 512;
@@ -148,6 +153,10 @@ export function useViperAudio(): UseViperAudioResult {
 
         const controller = new module.ViperController();
         viperControllerRef.current = controller;
+
+        // Set default sample rate before applying any effects
+        // This ensures effects initialize with valid coefficients
+        controller.setSampleRate(44100);
 
         // Pre-allocate memory for audio processing
         const inputPtr = module._malloc(BUFFER_SIZE * 2 * 4); // stereo, float32
@@ -357,6 +366,11 @@ export function useViperAudio(): UseViperAudioResult {
         if (data.type === 'ready') {
           console.log('[ViPER] AudioWorklet ready');
           workletReadyRef.current = true;
+          // Sync enabled state to worklet on initialization
+          workletNode.port.postMessage({
+            type: 'setEnabled',
+            value: effectStateRef.current.enabled
+          });
         } else if (data.type === 'inputAudio') {
           // Process audio in main thread with WASM
           processAudioInMainThread(data.inputL, data.inputR, data.sequence);
