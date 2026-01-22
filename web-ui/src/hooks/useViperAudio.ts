@@ -281,6 +281,78 @@ export function useViperAudio(): UseViperAudioResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]); // Only run once when loading completes
 
+  // Helper function to apply all effect settings to the controller
+  // Called after setSampleRate since it resets all effects internally
+  const applyAllEffects = useCallback(() => {
+    const controller = viperControllerRef.current;
+    if (!controller) return;
+
+    const state = effectStateRef.current;
+
+    controller.setEnabled(state.enabled);
+    controller.setConvolverEnabled(state.convolverEnabled);
+    controller.setConvolverCrossChannel(state.convolverCrossChannel);
+    controller.setVHEEnabled(state.vheEnabled);
+    controller.setVHELevel(state.vheLevel);
+    controller.setDDCEnabled(state.ddcEnabled);
+    controller.setSpectrumExtendEnabled(state.spectrumExtendEnabled);
+    controller.setSpectrumExtendBark(state.spectrumExtendBark);
+    controller.setSpectrumExtendBarkReconstruct(state.spectrumExtendBarkReconstruct);
+    controller.setFIREqualizerEnabled(state.firEqualizerEnabled);
+    state.firEqualizerBands.forEach((gain, index) => {
+      controller.setFIREqualizerBand(index, gain);
+    });
+    controller.setFieldSurroundEnabled(state.fieldSurroundEnabled);
+    controller.setFieldSurroundWidening(state.fieldSurroundWidening);
+    controller.setFieldSurroundMidImage(state.fieldSurroundMidImage);
+    controller.setFieldSurroundDepth(state.fieldSurroundDepth);
+    controller.setDiffSurroundEnabled(state.diffSurroundEnabled);
+    controller.setDiffSurroundDelay(state.diffSurroundDelay);
+    controller.setReverbEnabled(state.reverbEnabled);
+    controller.setReverbRoomSize(state.reverbRoomSize);
+    controller.setReverbRoomWidth(state.reverbRoomWidth);
+    controller.setReverbDampening(state.reverbDampening);
+    controller.setReverbWetSignal(state.reverbWetSignal);
+    controller.setReverbDrySignal(state.reverbDrySignal);
+    controller.setAGCEnabled(state.agcEnabled);
+    controller.setAGCRatio(state.agcRatio);
+    controller.setAGCVolume(state.agcVolume);
+    controller.setAGCMaxScaler(state.agcMaxScaler);
+    controller.setDynamicSystemEnabled(state.dynamicSystemEnabled);
+    controller.setDynamicSystemXCoeffs(state.dynamicSystemXLowFreq, state.dynamicSystemXHighFreq);
+    controller.setDynamicSystemYCoeffs(state.dynamicSystemYLowFreq, state.dynamicSystemYHighFreq);
+    controller.setDynamicSystemSideGain(state.dynamicSystemSideGainX, state.dynamicSystemSideGainY);
+    controller.setDynamicSystemBassGain(state.dynamicSystemBassGain);
+    controller.setViperBassEnabled(state.viperBassEnabled);
+    controller.setViperBassMode(state.viperBassMode);
+    controller.setViperBassFrequency(state.viperBassFrequency);
+    controller.setViperBassGain(state.viperBassGain);
+    controller.setViperClarityEnabled(state.viperClarityEnabled);
+    controller.setViperClarityMode(state.viperClarityMode);
+    controller.setViperClarityGain(state.viperClarityGain);
+    controller.setCureEnabled(state.cureEnabled);
+    controller.setCureLevel(state.cureLevel);
+    controller.setTubeSimulatorEnabled(state.tubeSimulatorEnabled);
+    controller.setAnalogXEnabled(state.analogXEnabled);
+    controller.setAnalogXMode(state.analogXMode);
+    controller.setOutputVolume(state.outputVolume);
+    controller.setOutputPan(state.outputPan);
+    controller.setLimiterThreshold(state.limiterThreshold);
+    controller.setSpeakerOptimizationEnabled(state.speakerOptimizationEnabled);
+    controller.setFETCompressorEnabled(state.fetCompressorEnabled);
+    controller.setFETCompressorThreshold(state.fetCompressorThreshold);
+    controller.setFETCompressorRatio(state.fetCompressorRatio);
+    controller.setFETCompressorKnee(state.fetCompressorKnee);
+    controller.setFETCompressorAutoKnee(state.fetCompressorAutoKnee);
+    controller.setFETCompressorGain(state.fetCompressorGain);
+    controller.setFETCompressorAutoGain(state.fetCompressorAutoGain);
+    controller.setFETCompressorAttack(state.fetCompressorAttack);
+    controller.setFETCompressorAutoAttack(state.fetCompressorAutoAttack);
+    controller.setFETCompressorRelease(state.fetCompressorRelease);
+    controller.setFETCompressorAutoRelease(state.fetCompressorAutoRelease);
+    controller.setFETCompressorNoClip(state.fetCompressorNoClip);
+  }, []);
+
   // Update time tracking
   const updateTime = useCallback(() => {
     if (audioContextRef.current && isPlayingRef.current) {
@@ -419,6 +491,7 @@ export function useViperAudio(): UseViperAudioResult {
 
       // Set sample rate in ViPER controller
       viperControllerRef.current.setSampleRate(audioBuffer.sampleRate);
+      applyAllEffects(); // Re-apply effects after sample rate change (setSampleRate resets them)
 
       setDuration(audioBuffer.duration);
       setCurrentTime(0);
@@ -845,6 +918,7 @@ export function useViperAudio(): UseViperAudioResult {
       // Set sample rate
       if (viperControllerRef.current) {
         viperControllerRef.current.setSampleRate(item.buffer.sampleRate);
+        applyAllEffects(); // Re-apply effects after sample rate change
       }
 
       // Start playback
@@ -874,6 +948,7 @@ export function useViperAudio(): UseViperAudioResult {
 
         if (viperControllerRef.current) {
           viperControllerRef.current.setSampleRate(audioBuffer.sampleRate);
+          applyAllEffects(); // Re-apply effects after sample rate change
         }
 
         setIsLoadingAudio(false);
