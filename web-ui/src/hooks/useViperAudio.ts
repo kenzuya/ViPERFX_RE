@@ -896,7 +896,12 @@ export function useViperAudio(): UseViperAudioResult {
       buffer: null,
     }));
 
-    setAudioQueue(prev => [...prev, ...newItems]);
+    // Track if queue was empty before adding (check synchronously in updater)
+    let wasEmpty = false;
+    setAudioQueue(prev => {
+      wasEmpty = prev.length === 0;
+      return [...prev, ...newItems];
+    });
 
     // Initialize audio context for decoding
     if (!audioContextRef.current) {
@@ -907,7 +912,6 @@ export function useViperAudio(): UseViperAudioResult {
     }
 
     const ctx = audioContextRef.current;
-    const wasEmpty = audioQueueRef.current.length === 0;
 
     // Pre-decode all buffers in parallel (fire and forget)
     newItems.forEach(async (item) => {
