@@ -5,11 +5,9 @@
  * AudioContext creation, and ViperController setup.
  */
 
-import type { ViperController, ViperModule, ViperEffectState, AudioQueueItem, RepeatMode } from '$lib/types/viper';
-import { defaultEffectState, saveEffectState, getInitialEffectState } from '$lib/types/viper';
+import type { ViperController, ViperModule, ViperEffectState } from '$lib/types/viper';
 import { effectState, getEffectState } from '$lib/stores/effect-state';
 import { audioQueue, getAudioQueueState } from '$lib/stores/audio-queue';
-import { get } from 'svelte/store';
 
 interface ViperModuleFactory {
   (options?: { locateFile?: (path: string) => string }): Promise<ViperModule>;
@@ -323,7 +321,7 @@ export function createViperAudio() {
 
       workletNode = node;
       return node;
-    } catch (err) {
+    } catch {
       return null;
     }
   }

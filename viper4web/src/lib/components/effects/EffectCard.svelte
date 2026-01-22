@@ -55,11 +55,11 @@
 				<span class="text-viper-400">
 					<svg class="w-5 h-5" fill="currentColor" viewBox={icon.viewBox}>
 						{#if icon.circles}
-							{#each icon.circles as circle}
+							{#each icon.circles as circle, i (i)}
 								<circle cx={circle.cx} cy={circle.cy} r={circle.r} />
 							{/each}
 						{/if}
-						{#each icon.paths as path}
+						{#each icon.paths as path, i (i)}
 							<path d={path} />
 						{/each}
 					</svg>

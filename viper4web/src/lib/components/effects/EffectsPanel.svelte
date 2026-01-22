@@ -31,8 +31,7 @@
 		SpectrumIcon,
 		CompressorIcon,
 		SpeakerIcon,
-		VolumeIcon,
-		type IconData
+		VolumeIcon
 	} from './effect-icons';
 
 	interface Props {
