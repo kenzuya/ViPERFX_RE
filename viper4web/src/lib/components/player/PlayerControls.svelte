@@ -72,7 +72,7 @@
 <div class={cn('flex items-center justify-center gap-2', className)}>
   <!-- Previous Track -->
   <Tooltip.Root>
-    <Tooltip.Trigger asChild>
+    <Tooltip.Trigger>
       {#snippet child({ props })}
         <button
           {...props}
@@ -93,7 +93,7 @@
 
   <!-- Stop -->
   <Tooltip.Root>
-    <Tooltip.Trigger asChild>
+    <Tooltip.Trigger>
       {#snippet child({ props })}
         <button
           {...props}
@@ -114,7 +114,7 @@
 
   <!-- Play/Pause -->
   <Tooltip.Root>
-    <Tooltip.Trigger asChild>
+    <Tooltip.Trigger>
       {#snippet child({ props })}
         <button
           {...props}
@@ -143,7 +143,7 @@
 
   <!-- Next Track -->
   <Tooltip.Root>
-    <Tooltip.Trigger asChild>
+    <Tooltip.Trigger>
       {#snippet child({ props })}
         <button
           {...props}
@@ -164,7 +164,7 @@
 
   <!-- Repeat -->
   <Tooltip.Root>
-    <Tooltip.Trigger asChild>
+    <Tooltip.Trigger>
       {#snippet child({ props })}
         <button
           {...props}

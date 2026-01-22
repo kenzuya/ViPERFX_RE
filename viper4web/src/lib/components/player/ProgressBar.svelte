@@ -96,7 +96,7 @@
 
 <div class={cn('mb-4', className)}>
   <Tooltip.Root>
-    <Tooltip.Trigger asChild>
+    <Tooltip.Trigger>
       {#snippet child({ props })}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
