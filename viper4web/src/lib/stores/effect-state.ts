@@ -18,8 +18,10 @@ import { getStorageItem, setStorageItem, STORAGE_KEYS } from '$lib/utils/storage
 function loadPersistedState(): ViperEffectState {
   const saved = getStorageItem<Partial<ViperEffectState>>(STORAGE_KEYS.EFFECT_STATE, {});
 
-  // Validate that it has the expected structure by checking a key property
-  if (saved && typeof saved === 'object' && 'enabled' in saved) {
+  // Validate that it has the expected structure by checking if it's a non-empty object
+  // We check for any known property to determine if it's a valid saved state
+  if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
+    // Merge with defaults to ensure all properties exist (handles schema migrations)
     return { ...defaultEffectState, ...saved };
   }
 
@@ -44,10 +46,12 @@ function createEffectStateStore(): Writable<ViperEffectState> & {
   const { subscribe, set, update } = writable<ViperEffectState>(loadPersistedState());
 
   // Subscribe to changes and persist to localStorage
+  // Use a flag to skip the initial subscription call and ensure we're in a browser
   let initialized = false;
   subscribe((state) => {
     // Skip initial subscription call during SSR or before hydration
-    if (initialized) {
+    // Also check if we're in the browser by verifying window exists
+    if (initialized && typeof window !== 'undefined') {
       saveState(state);
     }
     initialized = true;

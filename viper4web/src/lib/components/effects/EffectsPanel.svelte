@@ -45,6 +45,9 @@
 
 	let { effectState, onUpdateEffect, onUpdateEqualizerBand }: Props = $props();
 
+	// Check if master is enabled - when disabled, all effects are bypassed
+	let masterEnabled = $derived(effectState.enabled);
+
 	// Helper to update effect state
 	function updateEffect<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]) {
 		onUpdateEffect?.(key, value);
@@ -156,17 +159,28 @@
 {/snippet}
 
 <div class="space-y-6">
+	<!-- Master Bypass Warning -->
+	{#if !masterEnabled}
+		<div class="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-amber-200 text-sm flex items-center gap-2">
+			<svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+				<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+			</svg>
+			<span>Master toggle is OFF - All effects are bypassed. Enable the Master switch in the header to apply effects.</span>
+		</div>
+	{/if}
+
 	<!-- 10-Band Equalizer - Full width -->
 	<EffectCard
 		title="10-Band Equalizer"
 		enabled={effectState.firEqualizerEnabled}
+		masterDisabled={!masterEnabled}
 		onToggle={(enabled) => updateEffect('firEqualizerEnabled', enabled)}
 		icon={EqualizerIcon}
 	>
 		<Equalizer
 			bands={effectState.firEqualizerBands}
 			onChange={onUpdateEqualizerBand}
-			disabled={!effectState.firEqualizerEnabled}
+			disabled={!effectState.firEqualizerEnabled || !masterEnabled}
 		/>
 	</EffectCard>
 
@@ -176,6 +190,7 @@
 		<EffectCard
 			title="ViPER Bass"
 			enabled={effectState.viperBassEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('viperBassEnabled', enabled)}
 			icon={BassIcon}
 		>
@@ -207,6 +222,7 @@
 		<EffectCard
 			title="ViPER Clarity"
 			enabled={effectState.viperClarityEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('viperClarityEnabled', enabled)}
 			icon={ClarityIcon}
 		>
@@ -230,6 +246,7 @@
 		<EffectCard
 			title="Dynamic Bass"
 			enabled={effectState.dynamicSystemEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('dynamicSystemEnabled', enabled)}
 			icon={DynamicBassIcon}
 		>
@@ -295,6 +312,7 @@
 		<EffectCard
 			title="Reverb"
 			enabled={effectState.reverbEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('reverbEnabled', enabled)}
 			icon={ReverbIcon}
 		>
@@ -344,6 +362,7 @@
 		<EffectCard
 			title="Field Surround"
 			enabled={effectState.fieldSurroundEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('fieldSurroundEnabled', enabled)}
 			icon={SurroundIcon}
 		>
@@ -377,6 +396,7 @@
 		<EffectCard
 			title="Headphone Engine"
 			enabled={effectState.vheEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('vheEnabled', enabled)}
 			icon={HeadphoneIcon}
 		>
@@ -392,6 +412,7 @@
 		<EffectCard
 			title="Diff Surround"
 			enabled={effectState.diffSurroundEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('diffSurroundEnabled', enabled)}
 			icon={SurroundIcon}
 		>
@@ -409,6 +430,7 @@
 		<EffectCard
 			title="Cure (Crossfeed)"
 			enabled={effectState.cureEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('cureEnabled', enabled)}
 			icon={CrossfeedIcon}
 		>
@@ -424,6 +446,7 @@
 		<EffectCard
 			title="Tube Simulator"
 			enabled={effectState.tubeSimulatorEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('tubeSimulatorEnabled', enabled)}
 			icon={TubeIcon}
 		>
@@ -436,6 +459,7 @@
 		<EffectCard
 			title="AnalogX"
 			enabled={effectState.analogXEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('analogXEnabled', enabled)}
 			icon={AnalogIcon}
 		>
@@ -451,6 +475,7 @@
 		<EffectCard
 			title="Spectrum Extend"
 			enabled={effectState.spectrumExtendEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('spectrumExtendEnabled', enabled)}
 			icon={SpectrumIcon}
 		>
@@ -474,6 +499,7 @@
 		<EffectCard
 			title="FET Compressor"
 			enabled={effectState.fetCompressorEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('fetCompressorEnabled', enabled)}
 			icon={CompressorIcon}
 		>
@@ -523,6 +549,7 @@
 		<EffectCard
 			title="Speaker Optimization"
 			enabled={effectState.speakerOptimizationEnabled}
+			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('speakerOptimizationEnabled', enabled)}
 			icon={SpeakerIcon}
 		>
@@ -531,7 +558,7 @@
 			</p>
 		</EffectCard>
 
-		<!-- Output Controls -->
+		<!-- Output Controls (always enabled, not affected by master toggle) -->
 		<EffectCard
 			title="Output"
 			enabled={true}

@@ -71,6 +71,7 @@
 
 <div class={cn('flex items-center justify-center gap-2', className)}>
   <!-- Previous Track -->
+   <Tooltip.Provider>
   <Tooltip.Root>
     <Tooltip.Trigger>
       {#snippet child({ props })}
@@ -200,4 +201,5 @@
       <p>Repeat: {repeatLabel}</p>
     </Tooltip.Content>
   </Tooltip.Root>
+  </Tooltip.Provider>
 </div>

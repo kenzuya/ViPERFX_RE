@@ -17,6 +17,8 @@
 		title: string;
 		/** Whether the effect is enabled */
 		enabled?: boolean;
+		/** Whether the master toggle is disabled (bypasses all effects) */
+		masterDisabled?: boolean;
 		/** Icon data to display next to the title */
 		icon?: IconData;
 		/** Callback when the toggle state changes */
@@ -30,11 +32,15 @@
 	let {
 		title,
 		enabled = $bindable(false),
+		masterDisabled = false,
 		icon,
 		onToggle,
 		children,
 		class: className
 	}: Props = $props();
+
+	// Effect is visually disabled if either master is off or the effect itself is off
+	let isEffectActive = $derived(enabled && !masterDisabled);
 
 	function handleToggleChange(checked: boolean) {
 		enabled = checked;
@@ -45,14 +51,15 @@
 <Card.Root
 	class={cn(
 		'transition-all duration-200',
-		enabled ? 'border-viper-500/50 shadow-md shadow-viper-500/10' : 'border-border/50',
+		isEffectActive ? 'border-viper-500/50 shadow-md shadow-viper-500/10' : 'border-border/50',
+		masterDisabled && 'opacity-75',
 		className
 	)}
 >
 	<Card.Header class="flex flex-row items-center justify-between pb-4">
 		<div class="flex items-center gap-2">
 			{#if icon}
-				<span class="text-viper-400">
+				<span class={cn('text-viper-400', masterDisabled && 'text-muted-foreground')}>
 					<svg class="w-5 h-5" fill="currentColor" viewBox={icon.viewBox}>
 						{#if icon.circles}
 							{#each icon.circles as circle, i (i)}
@@ -66,10 +73,13 @@
 				</span>
 			{/if}
 			<Card.Title class="text-base font-medium">{title}</Card.Title>
+			{#if masterDisabled}
+				<span class="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Bypassed</span>
+			{/if}
 		</div>
 		<Switch checked={enabled} onCheckedChange={handleToggleChange} />
 	</Card.Header>
-	<Card.Content class={cn('space-y-3', !enabled && 'opacity-50 pointer-events-none')}>
+	<Card.Content class={cn('space-y-3', !isEffectActive && 'opacity-50 pointer-events-none')}>
 		{@render children?.()}
 	</Card.Content>
 </Card.Root>

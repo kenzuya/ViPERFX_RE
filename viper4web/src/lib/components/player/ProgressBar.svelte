@@ -95,6 +95,7 @@
 </script>
 
 <div class={cn('mb-4', className)}>
+  <Tooltip.Provider>
   <Tooltip.Root>
     <Tooltip.Trigger>
       {#snippet child({ props })}
@@ -135,10 +136,12 @@
       <p>Click to seek</p>
     </Tooltip.Content>
   </Tooltip.Root>
+  
 
   <!-- Time display -->
   <div class="flex justify-between text-sm text-dark-400 mt-1">
     <span>{formatTime(currentTime)}</span>
     <span>{formatTime(duration)}</span>
   </div>
+  </Tooltip.Provider>
 </div>
