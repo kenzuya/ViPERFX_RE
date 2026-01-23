@@ -31,6 +31,7 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
 
     // State
     this.isStarted = false; // Has playback started?
+    this.enabled = true; // Master bypass state
 
     // Pre-buffer: wait for enough samples before outputting
     this.preBufferThreshold = 2048; // ~46ms at 44.1kHz
@@ -69,6 +70,14 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
         break;
       case 'reset':
         this.reset();
+        break;
+      case 'setEnabled':
+        this.enabled = data.value;
+        if (!data.value) {
+          // Flush ring buffer to prevent stale processed audio
+          this.bufferedSamples = 0;
+          this.hasPreBuffered = false;
+        }
         break;
     }
   }
@@ -167,6 +176,15 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     const hasInput = input && input[0] && input[0].length > 0;
     const inputL = hasInput ? input[0] : null;
     const inputR = hasInput ? (input[1] || input[0]) : null;
+
+    // Bypass path: when disabled, copy input directly to output
+    if (!this.enabled && hasInput) {
+      for (let i = 0; i < frameCount; i++) {
+        outputL[i] = inputL[i];
+        outputR[i] = inputR ? inputR[i] : inputL[i];
+      }
+      return true;
+    }
 
     // Capture and send input to main thread for processing
     if (hasInput && this.isStarted) {

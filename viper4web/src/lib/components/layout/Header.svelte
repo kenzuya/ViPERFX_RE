@@ -18,12 +18,19 @@
 		architecture?: string;
 		/** Additional CSS classes for the header */
 		class?: string;
+		/** Callback when master toggle changes - routes through viperAudio for worklet notification */
+		onMasterToggle?: (enabled: boolean) => void;
 	}
 
-	let { version, architecture, class: className }: Props = $props();
+	let { version, architecture, class: className, onMasterToggle }: Props = $props();
 
 	function handleMasterToggle(checked: boolean) {
-		effectState.updateEffect('enabled', checked);
+		if (onMasterToggle) {
+			onMasterToggle(checked);
+		} else {
+			// Fallback to direct store update if no callback provided
+			effectState.updateEffect('enabled', checked);
+		}
 	}
 
 	function handleResetAll() {

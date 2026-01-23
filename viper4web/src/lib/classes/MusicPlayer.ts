@@ -463,6 +463,18 @@ export class MusicPlayer {
   }
 
   /**
+   * Update worklet bypass state for immediate audio passthrough
+   */
+  setWorkletEnabled(enabled: boolean): void {
+    if (this.workletNode && this.workletReady) {
+      this.workletNode.port.postMessage({
+        type: 'setEnabled',
+        value: enabled,
+      });
+    }
+  }
+
+  /**
    * Add files to queue
    */
   async addToQueue(files: File[]): Promise<void> {

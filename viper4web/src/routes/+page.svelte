@@ -42,7 +42,11 @@
 {:else}
 	<div class="min-h-screen bg-background">
 		<!-- Header -->
-		<Header version={viperAudio.version ?? undefined} architecture={viperAudio.architecture ?? undefined} />
+		<Header
+			version={viperAudio.version ?? undefined}
+			architecture={viperAudio.architecture ?? undefined}
+			onMasterToggle={(checked) => viperAudio.updateEffect('enabled', checked)}
+		/>
 
 		<!-- Main Content -->
 		<main class="mx-auto max-w-7xl px-4 py-6">

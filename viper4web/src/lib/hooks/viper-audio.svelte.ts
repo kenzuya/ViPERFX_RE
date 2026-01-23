@@ -224,6 +224,11 @@ export function createViperAudio() {
     if (!viperEffect) return;
 
     viperEffect.updateEffect(key, value);
+
+    // Notify worklet for immediate bypass when master enabled state changes
+    if (key === 'enabled' && musicPlayer) {
+      musicPlayer.setWorkletEnabled(value as boolean);
+    }
   }
 
   /**
