@@ -4,10 +4,12 @@
    *
    * Combines drag-drop file zone, progress bar, player controls, and queue list
    * into a cohesive music player interface. This is the main component for audio playback.
+   * Uses Card component for consistent styling with effect cards.
    */
 
   import { cn } from '$lib/utils';
   import type { AudioQueueItem, RepeatMode } from '$lib/types/viper';
+  import * as Card from '$lib/components/ui/card';
   import PlayerControls from './PlayerControls.svelte';
   import ProgressBar from './ProgressBar.svelte';
   import QueueList from './QueueList.svelte';
@@ -146,84 +148,94 @@
   }
 </script>
 
-<div class={cn('glass rounded-2xl p-6', className)}>
-  <!-- Hidden file input -->
-  <input
-    bind:this={fileInputRef}
-    type="file"
-    accept="audio/*"
-    multiple
-    onchange={handleFileChange}
-    class="hidden"
-    disabled={isLoadingAudio}
-  />
-
-  <!-- File Drop Zone -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    ondrop={handleDrop}
-    ondragover={handleDragOver}
-    ondragleave={handleDragLeave}
-    onclick={openFilePicker}
-    class={cn(
-      'border-2 border-dashed rounded-xl p-8 text-center transition-colors mb-6',
-      isLoadingAudio
-        ? 'border-dark-600 cursor-wait opacity-75'
-        : isDragging
-          ? 'border-viper-400 bg-viper-500/10'
-          : 'border-dark-600 hover:border-viper-500 cursor-pointer'
-    )}
-  >
-    {#if isLoadingAudio}
-      <!-- Loading state -->
-      <div class="animate-spin w-12 h-12 border-4 border-viper-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-      <p class="text-viper-400 font-medium">Loading audio...</p>
-      <p class="text-dark-500 text-sm mt-1">{audioFileName}</p>
-    {:else}
-      <!-- Default/ready state -->
-      <svg class="w-12 h-12 mx-auto mb-3 text-dark-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<Card.Root class={cn('transition-all duration-200', className)}>
+  <Card.Header class="pb-4">
+    <Card.Title class="text-base font-medium flex items-center gap-2">
+      <svg class="w-5 h-5 text-viper-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
       </svg>
-      {#if audioFileName}
-        <p class="text-white font-medium">{audioFileName}</p>
+      Music Player
+    </Card.Title>
+  </Card.Header>
+  <Card.Content class="space-y-4">
+    <!-- Hidden file input -->
+    <input
+      bind:this={fileInputRef}
+      type="file"
+      accept="audio/*"
+      multiple
+      onchange={handleFileChange}
+      class="hidden"
+      disabled={isLoadingAudio}
+    />
+
+    <!-- File Drop Zone -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      ondrop={handleDrop}
+      ondragover={handleDragOver}
+      ondragleave={handleDragLeave}
+      onclick={openFilePicker}
+      class={cn(
+        'border-2 border-dashed rounded-xl p-8 text-center transition-colors',
+        isLoadingAudio
+          ? 'border-muted cursor-wait opacity-75'
+          : isDragging
+            ? 'border-viper-400 bg-viper-500/10'
+            : 'border-muted hover:border-viper-500 cursor-pointer'
+      )}
+    >
+      {#if isLoadingAudio}
+        <!-- Loading state -->
+        <div class="animate-spin w-12 h-12 border-4 border-viper-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+        <p class="text-viper-400 font-medium">Loading audio...</p>
+        <p class="text-muted-foreground text-sm mt-1">{audioFileName}</p>
       {:else}
-        <p class="text-dark-300">Drop audio files here or click to browse</p>
-        <p class="text-dark-500 text-sm mt-1">MP3, WAV, FLAC, OGG supported (multiple files allowed)</p>
+        <!-- Default/ready state -->
+        <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+        {#if audioFileName}
+          <p class="text-foreground font-medium">{audioFileName}</p>
+        {:else}
+          <p class="text-muted-foreground">Drop audio files here or click to browse</p>
+          <p class="text-muted-foreground text-sm mt-1">MP3, WAV, FLAC, OGG supported (multiple files allowed)</p>
+        {/if}
       {/if}
-    {/if}
-  </div>
+    </div>
 
-  <!-- Progress Bar -->
-  <ProgressBar
-    {currentTime}
-    {duration}
-    disabled={controlsDisabled}
-    {onSeek}
-  />
+    <!-- Progress Bar -->
+    <ProgressBar
+      {currentTime}
+      {duration}
+      disabled={controlsDisabled}
+      {onSeek}
+    />
 
-  <!-- Player Controls -->
-  <PlayerControls
-    {isPlaying}
-    isLoading={isLoadingAudio}
-    disabled={controlsDisabled}
-    {hasQueue}
-    {repeatMode}
-    {onPlay}
-    {onPause}
-    {onStop}
-    onPrevious={onPlayPrevious}
-    onNext={onPlayNext}
-    {onToggleRepeat}
-  />
+    <!-- Player Controls -->
+    <PlayerControls
+      {isPlaying}
+      isLoading={isLoadingAudio}
+      disabled={controlsDisabled}
+      {hasQueue}
+      {repeatMode}
+      {onPlay}
+      {onPause}
+      {onStop}
+      onPrevious={onPlayPrevious}
+      onNext={onPlayNext}
+      {onToggleRepeat}
+    />
 
-  <!-- Queue List -->
-  <QueueList
-    {queue}
-    currentIndex={currentQueueIndex}
-    {onPlayTrack}
-    onRemoveTrack={onRemoveFromQueue}
-    {onClearQueue}
-    onAddFiles={onAddToQueue}
-  />
-</div>
+    <!-- Queue List -->
+    <QueueList
+      {queue}
+      currentIndex={currentQueueIndex}
+      {onPlayTrack}
+      onRemoveTrack={onRemoveFromQueue}
+      {onClearQueue}
+      onAddFiles={onAddToQueue}
+    />
+  </Card.Content>
+</Card.Root>
