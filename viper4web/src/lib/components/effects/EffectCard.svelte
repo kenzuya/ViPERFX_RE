@@ -20,7 +20,7 @@
 		/** Whether the master toggle is disabled (bypasses all effects) */
 		masterDisabled?: boolean;
 		/** Icon data to display next to the title */
-		icon?: IconData;
+		icon?: IconData | Snippet;
 		/** Callback when the toggle state changes */
 		onToggle?: (enabled: boolean) => void;
 		/** Content slot for effect controls */
@@ -51,7 +51,7 @@
 <Card.Root
 	class={cn(
 		'transition-all duration-200',
-		isEffectActive ? 'border-viper-500/50 shadow-md shadow-viper-500/10' : 'border-border/50',
+		isEffectActive ? 'border-primary-500/50 shadow-md shadow-primary-500/10' : 'border-border/50',
 		masterDisabled && 'opacity-75',
 		className
 	)}
@@ -59,17 +59,21 @@
 	<Card.Header class="flex flex-row items-center justify-between pb-4">
 		<div class="flex items-center gap-2">
 			{#if icon}
-				<span class={cn('text-viper-400', masterDisabled && 'text-muted-foreground')}>
-					<svg class="w-5 h-5" fill="currentColor" viewBox={icon.viewBox}>
-						{#if icon.circles}
-							{#each icon.circles as circle, i (i)}
-								<circle cx={circle.cx} cy={circle.cy} r={circle.r} />
+				<span class={cn('text-primary-400', masterDisabled && 'text-muted-foreground')}>
+					{#if typeof icon === 'function'}
+						{@render icon()}
+					{:else}
+						<svg class="w-5 h-5" fill="currentColor" viewBox={icon.viewBox}>
+							{#if icon.circles}
+								{#each icon.circles as circle, i (i)}
+									<circle cx={circle.cx} cy={circle.cy} r={circle.r} />
+								{/each}
+							{/if}
+							{#each icon.paths as path, i (i)}
+								<path d={path} />
 							{/each}
-						{/if}
-						{#each icon.paths as path, i (i)}
-							<path d={path} />
-						{/each}
-					</svg>
+						</svg>
+					{/if}
 				</span>
 			{/if}
 			<Card.Title class="text-base font-medium">{title}</Card.Title>

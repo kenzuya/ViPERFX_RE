@@ -4,7 +4,7 @@
 	 *
 	 * Displays a grid layout of effect cards including:
 	 * - Equalizer (full width)
-	 * - ViPER Bass, Clarity, Dynamic Bass
+	 * - ViPER Bass, Clarity, Dynamic System
 	 * - Reverb, Field Surround, VHE
 	 * - Diff Surround, Cure, Tube
 	 * - AnalogX, Spectrum, FET Compressor
@@ -15,13 +15,13 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Slider } from '$lib/components/ui/slider';
 	import * as Select from '$lib/components/ui/select';
+	import { Settings2 } from '@lucide/svelte';
 	import EffectCard from './EffectCard.svelte';
 	import Equalizer from './Equalizer.svelte';
 	import {
 		EqualizerIcon,
 		BassIcon,
 		ClarityIcon,
-		DynamicBassIcon,
 		ReverbIcon,
 		SurroundIcon,
 		HeadphoneIcon,
@@ -242,14 +242,16 @@
 			})}
 		</EffectCard>
 
-		<!-- Dynamic Bass -->
+		<!-- Dynamic System -->
 		<EffectCard
-			title="Dynamic Bass"
+			title="Dynamic System"
 			enabled={effectState.dynamicSystemEnabled}
 			masterDisabled={!masterEnabled}
 			onToggle={(enabled) => updateEffect('dynamicSystemEnabled', enabled)}
-			icon={DynamicBassIcon}
 		>
+			{#snippet icon()}
+				<Settings2 class="w-5 h-5" />
+			{/snippet}
 			{@render LabeledSlider({
 				label: 'Bass Gain',
 				value: effectState.dynamicSystemBassGain,

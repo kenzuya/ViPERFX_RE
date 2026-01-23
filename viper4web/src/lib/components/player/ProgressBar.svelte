@@ -118,7 +118,7 @@
         >
           <!-- Progress fill -->
           <div
-            class="h-full bg-gradient-to-r from-viper-600 to-viper-400 rounded-full transition-all"
+            class="h-full bg-gradient-to-r from-primary-600 to-primary-400 rounded-full transition-all"
             style="width: {progress}%"
           ></div>
 

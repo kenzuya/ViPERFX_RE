@@ -116,7 +116,7 @@
       <div class="flex items-center gap-3">
         <button
           onclick={openFilePicker}
-          class="text-xs text-dark-400 hover:text-viper-400 transition-colors flex items-center gap-1"
+          class="text-xs text-dark-400 hover:text-primary-400 transition-colors flex items-center gap-1"
           title="Add files"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,14 +144,14 @@
           class={cn(
             'flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors',
             index === currentIndex
-              ? 'bg-viper-500/20 border-l-2 border-viper-500'
+              ? 'bg-primary-500/20 border-l-2 border-primary-500'
               : 'hover:bg-dark-700/50 border-l-2 border-transparent'
           )}
         >
           <!-- Track number / playing indicator -->
           <div class="w-6 text-center">
             {#if index === currentIndex}
-              <svg class="w-4 h-4 text-viper-400 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-primary-400 mx-auto" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             {:else}

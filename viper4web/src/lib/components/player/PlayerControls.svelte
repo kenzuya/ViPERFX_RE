@@ -121,7 +121,7 @@
           {...props}
           onclick={handlePlayPause}
           disabled={controlsDisabled}
-          class="p-4 rounded-full bg-viper-500 hover:bg-viper-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors glow-viper"
+          class="p-4 rounded-full bg-primary-500 hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors glow-viper"
         >
           {#if isLoading}
             <div class="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -174,7 +174,7 @@
             'p-3 rounded-full transition-colors',
             repeatMode === 'off'
               ? 'bg-dark-700 hover:bg-dark-600 text-dark-400'
-              : 'bg-viper-500/20 hover:bg-viper-500/30 text-viper-400'
+              : 'bg-primary-500/20 hover:bg-primary-500/30 text-primary-400'
           )}
         >
           {#if repeatMode === 'off'}

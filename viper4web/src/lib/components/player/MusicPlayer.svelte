@@ -151,7 +151,7 @@
 <Card.Root class={cn('transition-all duration-200', className)}>
   <Card.Header class="pb-4">
     <Card.Title class="text-base font-medium flex items-center gap-2">
-      <svg class="w-5 h-5 text-viper-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
       </svg>
       Music Player
@@ -182,14 +182,14 @@
         isLoadingAudio
           ? 'border-muted cursor-wait opacity-75'
           : isDragging
-            ? 'border-viper-400 bg-viper-500/10'
-            : 'border-muted hover:border-viper-500 cursor-pointer'
+            ? 'border-primary-400 bg-primary-500/10'
+            : 'border-muted hover:border-primary-500 cursor-pointer'
       )}
     >
       {#if isLoadingAudio}
         <!-- Loading state -->
-        <div class="animate-spin w-12 h-12 border-4 border-viper-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-        <p class="text-viper-400 font-medium">Loading audio...</p>
+        <div class="animate-spin w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+        <p class="text-primary-400 font-medium">Loading audio...</p>
         <p class="text-muted-foreground text-sm mt-1">{audioFileName}</p>
       {:else}
         <!-- Default/ready state -->

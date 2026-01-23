@@ -42,7 +42,7 @@
 			<!-- Logo and Title -->
 			<div class="flex items-center gap-3">
 				<div
-					class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-viper-400 to-viper-600"
+					class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-primary-600"
 				>
 					<svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
 						<path

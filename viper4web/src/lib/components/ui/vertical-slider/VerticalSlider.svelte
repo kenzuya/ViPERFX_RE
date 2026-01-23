@@ -180,7 +180,7 @@
 	{#if value >= 0}
 		<!-- Positive value: fill from center upward -->
 		<div
-			class="absolute w-1.5 rounded-full bg-viper-500 transition-all"
+			class="absolute w-1.5 rounded-full bg-primary-500 transition-all"
 			style="
 				height: {((value / max) * 50)}%;
 				bottom: 50%;
@@ -189,7 +189,7 @@
 	{:else}
 		<!-- Negative value: fill from center downward -->
 		<div
-			class="absolute w-1.5 rounded-full bg-viper-500 transition-all"
+			class="absolute w-1.5 rounded-full bg-primary-500 transition-all"
 			style="
 				height: {((Math.abs(value) / Math.abs(min)) * 50)}%;
 				top: 50%;
@@ -205,9 +205,9 @@
 	<!-- Thumb -->
 	<div
 		class={cn(
-			'absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-viper-500 border-2 border-viper-400 shadow-md shadow-viper-500/30 transition-transform z-20',
-			isDragging && 'scale-110 bg-viper-400',
-			!disabled && 'hover:scale-110 hover:bg-viper-400'
+			'absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-primary-500 border-2 border-primary-400 shadow-md shadow-primary-500/30 transition-transform z-20',
+			isDragging && 'scale-110 bg-primary-400',
+			!disabled && 'hover:scale-110 hover:bg-primary-400'
 		)}
 		style="bottom: calc({percentage}% - 8px);"
 	></div>
@@ -219,6 +219,6 @@
 	}
 
 	.vertical-slider:focus-visible > div:last-child {
-		box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.4);
+		box-shadow: 0 0 0 3px oklch(0.63 0.26 304 / 0.4);
 	}
 </style>

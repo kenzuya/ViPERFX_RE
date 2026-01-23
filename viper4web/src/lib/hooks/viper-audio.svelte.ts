@@ -223,8 +223,7 @@ export function createViperAudio() {
   function updateEffect<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]): void {
     if (!viperEffect) return;
 
-    const workletNode = musicPlayer?.getWorkletNode() || null;
-    viperEffect.updateEffect(key, value, workletNode);
+    viperEffect.updateEffect(key, value);
   }
 
   /**

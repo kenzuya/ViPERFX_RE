@@ -34,7 +34,7 @@
 	<div class="flex min-h-screen items-center justify-center bg-background">
 		<div class="text-center">
 			<div
-				class="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-viper-500 border-t-transparent"
+				class="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"
 			></div>
 			<p class="text-muted-foreground">Loading ViPER4Web...</p>
 		</div>

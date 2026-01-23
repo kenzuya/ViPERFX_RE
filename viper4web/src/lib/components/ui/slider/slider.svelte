@@ -37,7 +37,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 			<SliderPrimitive.Range
 				data-slot="slider-range"
 				class={cn(
-					"bg-viper-500 absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
+					"bg-primary-500 absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
 				)}
 			/>
 		</span>
@@ -45,7 +45,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 			<SliderPrimitive.Thumb
 				data-slot="slider-thumb"
 				index={thumb}
-				class="border-viper-400 ring-viper-500/50 block size-4 shrink-0 rounded-full border-2 bg-viper-500 shadow-sm shadow-viper-500/30 transition-[color,box-shadow] hover:ring-4 hover:bg-viper-400 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+				class="border-primary-400 ring-primary-500/50 block size-4 shrink-0 rounded-full border-2 bg-primary-500 shadow-sm shadow-primary-500/30 transition-[color,box-shadow] hover:ring-4 hover:bg-primary-400 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
 			/>
 		{/each}
 	{/snippet}

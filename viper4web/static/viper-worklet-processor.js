@@ -30,7 +30,6 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     this.inputChunkSize = 512;
 
     // State
-    this.isEnabled = true;
     this.isStarted = false; // Has playback started?
 
     // Pre-buffer: wait for enough samples before outputting
@@ -62,9 +61,6 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     switch (data.type) {
       case 'processedAudio':
         this.receiveProcessedAudio(data.outputL, data.outputR, data.sequence);
-        break;
-      case 'setEnabled':
-        this.isEnabled = data.value;
         break;
       case 'start':
         // Signal that playback is starting - begin pre-buffering
@@ -171,23 +167,6 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     const hasInput = input && input[0] && input[0].length > 0;
     const inputL = hasInput ? input[0] : null;
     const inputR = hasInput ? (input[1] || input[0]) : null;
-
-    // When disabled, pass through input audio directly
-    if (!this.isEnabled) {
-      if (hasInput) {
-        for (let i = 0; i < frameCount; i++) {
-          outputL[i] = inputL[i];
-          outputR[i] = inputR[i];
-        }
-      } else {
-        // No input available, output silence
-        for (let i = 0; i < frameCount; i++) {
-          outputL[i] = 0;
-          outputR[i] = 0;
-        }
-      }
-      return true;
-    }
 
     // Capture and send input to main thread for processing
     if (hasInput && this.isStarted) {

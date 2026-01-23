@@ -275,14 +275,14 @@ export class ViperEffect {
   /**
    * Update a single effect and save to localStorage via the store
    */
-  updateEffect<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K], workletNode?: AudioWorkletNode | null): void {
+  updateEffect<K extends keyof ViperEffectState>(key: K, value: ViperEffectState[K]): void {
     // Update the store (which handles localStorage persistence)
     effectState.updateEffect(key, value);
 
     if (!this.viperController) return;
 
     // Apply the effect change to the ViPER controller
-    this.applyEffectToController(key, value, workletNode);
+    this.applyEffectToController(key, value);
 
     if (this.callbacks.onEffectChange) {
       this.callbacks.onEffectChange(key, value);
@@ -294,8 +294,7 @@ export class ViperEffect {
    */
   private applyEffectToController<K extends keyof ViperEffectState>(
     key: K,
-    value: ViperEffectState[K],
-    workletNode?: AudioWorkletNode | null
+    value: ViperEffectState[K]
   ): void {
     if (!this.viperController) return;
 
@@ -303,17 +302,8 @@ export class ViperEffect {
       case 'enabled': {
         const enabled = value as boolean;
         this.viperController.setEnabled(enabled);
-        // Also notify worklet
-        if (workletNode) {
-          workletNode.port.postMessage({ type: 'setEnabled', value: enabled });
-        }
-        // When master is disabled, also disable all individual effects via WASM
-        if (!enabled) {
-          this.disableAllEffects();
-        } else {
-          // When master is re-enabled, restore individual effect states from store
-          this.restoreAllEffects();
-        }
+        // WASM handles bypass via memcpy - no worklet notification needed
+        // Individual effects remain configured, just bypassed when master is off
         break;
       }
       case 'convolverEnabled':
@@ -511,64 +501,6 @@ export class ViperEffect {
         this.viperController.setFETCompressorNoClip(value as boolean);
         break;
     }
-  }
-
-  /**
-   * Disable all effects when master is turned off
-   */
-  private disableAllEffects(): void {
-    if (!this.viperController) return;
-
-    this.viperController.setViperBassEnabled(false);
-    this.viperController.setViperClarityEnabled(false);
-    this.viperController.setFIREqualizerEnabled(false);
-    this.viperController.setFieldSurroundEnabled(false);
-    this.viperController.setDiffSurroundEnabled(false);
-    this.viperController.setReverbEnabled(false);
-    this.viperController.setVHEEnabled(false);
-    this.viperController.setDynamicSystemEnabled(false);
-    this.viperController.setCureEnabled(false);
-    this.viperController.setTubeSimulatorEnabled(false);
-    this.viperController.setAnalogXEnabled(false);
-    this.viperController.setSpectrumExtendEnabled(false);
-    this.viperController.setFETCompressorEnabled(false);
-    this.viperController.setSpeakerOptimizationEnabled(false);
-    this.viperController.setAGCEnabled(false);
-    this.viperController.setConvolverEnabled(false);
-    this.viperController.setDDCEnabled(false);
-    // Reset output controls to neutral when bypassed
-    this.viperController.setOutputVolume(100);
-    this.viperController.setOutputPan(0);
-    this.viperController.setLimiterThreshold(100);
-  }
-
-  /**
-   * Restore all effect states from store when master is re-enabled
-   */
-  private restoreAllEffects(): void {
-    if (!this.viperController) return;
-
-    const state = getEffectState();
-    this.viperController.setViperBassEnabled(state.viperBassEnabled);
-    this.viperController.setViperClarityEnabled(state.viperClarityEnabled);
-    this.viperController.setFIREqualizerEnabled(state.firEqualizerEnabled);
-    this.viperController.setFieldSurroundEnabled(state.fieldSurroundEnabled);
-    this.viperController.setDiffSurroundEnabled(state.diffSurroundEnabled);
-    this.viperController.setReverbEnabled(state.reverbEnabled);
-    this.viperController.setVHEEnabled(state.vheEnabled);
-    this.viperController.setDynamicSystemEnabled(state.dynamicSystemEnabled);
-    this.viperController.setCureEnabled(state.cureEnabled);
-    this.viperController.setTubeSimulatorEnabled(state.tubeSimulatorEnabled);
-    this.viperController.setAnalogXEnabled(state.analogXEnabled);
-    this.viperController.setSpectrumExtendEnabled(state.spectrumExtendEnabled);
-    this.viperController.setFETCompressorEnabled(state.fetCompressorEnabled);
-    this.viperController.setSpeakerOptimizationEnabled(state.speakerOptimizationEnabled);
-    this.viperController.setAGCEnabled(state.agcEnabled);
-    this.viperController.setConvolverEnabled(state.convolverEnabled);
-    this.viperController.setDDCEnabled(state.ddcEnabled);
-    this.viperController.setOutputVolume(state.outputVolume);
-    this.viperController.setOutputPan(state.outputPan);
-    this.viperController.setLimiterThreshold(state.limiterThreshold);
   }
 
   /**
