@@ -829,6 +829,7 @@ export function createViperAudio() {
 
   /**
    * Internal function to play a track by index
+   * This version properly handles state synchronization
    */
   async function playTrackInternal(index: number): Promise<void> {
     const queueState = getAudioQueueState();
@@ -841,10 +842,33 @@ export function createViperAudio() {
     // Clear any previous errors
     error = null;
 
-    // Clean up existing playback
-    cleanupPlayback();
+    // Stop any existing playback completely
+    if (sourceNode) {
+      try {
+        sourceNode.stop();
+      } catch {
+        // Ignore if already stopped
+      }
+      sourceNode.disconnect();
+      sourceNode = null;
+    }
+
+    // Reset worklet state
+    if (workletNode) {
+      workletNode.port.postMessage({ type: 'reset' });
+    }
+
+    // Cancel any existing animation frame
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+
+    // Reset playback state
     isPlayingInternal = false;
     isPlaying = false;
+    pauseTime = 0;
+    currentTime = 0;
 
     // Update current index in queue store
     audioQueue.setCurrentIndex(index);
@@ -854,17 +878,16 @@ export function createViperAudio() {
       audioBuffer = item.buffer;
       audioFileName = item.name;
       duration = item.duration;
-      pauseTime = 0;
-      currentTime = 0;
 
       // Set sample rate
       if (viperController) {
         viperController.setSampleRate(item.buffer.sampleRate);
-        applyAllEffects(); // Re-apply effects after sample rate change
+        applyAllEffects();
       }
 
-      // Start playback
-      setTimeout(() => play(), 10);
+      // Start playback after a microtask to ensure state is updated
+      await Promise.resolve();
+      await startPlayback();
     } else {
       // Need to decode the buffer first
       isLoadingAudio = true;
@@ -875,6 +898,10 @@ export function createViperAudio() {
           audioContext = new AudioContext();
         }
 
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
         const arrayBuffer = await item.file.arrayBuffer();
         const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
@@ -883,21 +910,103 @@ export function createViperAudio() {
 
         audioBuffer = decodedBuffer;
         duration = decodedBuffer.duration;
-        pauseTime = 0;
-        currentTime = 0;
 
         if (viperController) {
           viperController.setSampleRate(decodedBuffer.sampleRate);
-          applyAllEffects(); // Re-apply effects after sample rate change
+          applyAllEffects();
         }
 
         isLoadingAudio = false;
-        setTimeout(() => play(), 10);
+
+        // Start playback
+        await startPlayback();
       } catch (err) {
         error = err instanceof Error ? err.message : 'Failed to load track';
         isLoadingAudio = false;
       }
     }
+  }
+
+  /**
+   * Start audio playback (internal helper)
+   * Extracted to ensure clean state transitions
+   */
+  async function startPlayback(): Promise<void> {
+    if (!audioContext || !audioBuffer) {
+      error = 'No audio loaded';
+      return;
+    }
+
+    const ctx = audioContext;
+
+    // Resume context if suspended
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    // Ensure worklet is ready
+    if (!workletNode) {
+      await initAudioWorklet(ctx);
+    }
+
+    // Signal worklet that playback is starting
+    if (workletNode) {
+      workletNode.port.postMessage({ type: 'start' });
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+
+    // Connect through worklet
+    if (workletNode) {
+      source.connect(workletNode);
+      workletNode.connect(ctx.destination);
+    } else {
+      // Fallback: direct connection if worklet failed
+      source.connect(ctx.destination);
+    }
+
+    source.onended = () => {
+      if (isPlayingInternal) {
+        isPlayingInternal = false;
+        isPlaying = false;
+
+        const queueState = getAudioQueueState();
+        const currentIdx = queueState.currentIndex;
+        const queueItems = queueState.queue;
+        const repeat = queueState.repeatMode;
+
+        if (repeat === 'one') {
+          // Repeat current track
+          pauseTime = 0;
+          currentTime = 0;
+          startPlayback();
+        } else if (currentIdx < queueItems.length - 1) {
+          // Play next track
+          playTrackInternal(currentIdx + 1);
+        } else if (repeat === 'all' && queueItems.length > 0) {
+          // Loop back to first track
+          playTrackInternal(0);
+        } else {
+          // End of queue, reset to beginning
+          pauseTime = 0;
+          currentTime = 0;
+        }
+      }
+    };
+
+    // Start playback from current position
+    const offset = pauseTime;
+    startTime = ctx.currentTime;
+    source.start(0, offset);
+    sourceNode = source;
+
+    // Update state - this must happen synchronously
+    isPlayingInternal = true;
+    isPlaying = true;
+
+    // Start time update loop
+    animationFrameId = requestAnimationFrame(updateTime);
   }
 
   /**
