@@ -73,6 +73,8 @@ export function createViperAudio() {
   let pauseTime = 0;
   let animationFrameId: number | null = null;
   let isPlayingInternal = false;
+  // Sequence counter to invalidate stale onended handlers from old sources
+  let playbackSequence = 0;
 
   /**
    * Initialize the ViPER WASM module
@@ -445,10 +447,25 @@ export function createViperAudio() {
       source.connect(ctx.destination);
     }
 
+    // Increment sequence and capture for this playback instance
+    playbackSequence++;
+    const mySequence = playbackSequence;
+
     source.onended = () => {
+      // Only handle onended if this is still the current playback sequence
+      if (mySequence !== playbackSequence) {
+        return;
+      }
+
       if (isPlayingInternal) {
         isPlayingInternal = false;
         isPlaying = false;
+
+        // Cancel animation frame when playback ends
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
 
         const queueState = getAudioQueueState();
         const currentIndex = queueState.currentIndex;
@@ -523,6 +540,9 @@ export function createViperAudio() {
     const wasPlaying = isPlayingInternal;
 
     if (wasPlaying) {
+      // Increment sequence to invalidate the old onended handler
+      playbackSequence++;
+
       cleanupPlayback();
       isPlayingInternal = false;
       isPlaying = false;
@@ -563,6 +583,7 @@ export function createViperAudio() {
         // When master is disabled, also disable all individual effects via WASM
         // This ensures the WASM engine bypasses all processing
         if (!enabled) {
+          // Disable ALL effects when master is off
           viperController.setViperBassEnabled(false);
           viperController.setViperClarityEnabled(false);
           viperController.setFIREqualizerEnabled(false);
@@ -577,6 +598,14 @@ export function createViperAudio() {
           viperController.setSpectrumExtendEnabled(false);
           viperController.setFETCompressorEnabled(false);
           viperController.setSpeakerOptimizationEnabled(false);
+          // Also disable AGC, Convolver, DDC to ensure complete bypass
+          viperController.setAGCEnabled(false);
+          viperController.setConvolverEnabled(false);
+          viperController.setDDCEnabled(false);
+          // Reset output controls to neutral when bypassed
+          viperController.setOutputVolume(100); // 100% = unity gain
+          viperController.setOutputPan(0); // Center pan
+          viperController.setLimiterThreshold(100); // Max threshold = no limiting
         } else {
           // When master is re-enabled, restore individual effect states from store
           const state = getEffectState();
@@ -594,6 +623,14 @@ export function createViperAudio() {
           viperController.setSpectrumExtendEnabled(state.spectrumExtendEnabled);
           viperController.setFETCompressorEnabled(state.fetCompressorEnabled);
           viperController.setSpeakerOptimizationEnabled(state.speakerOptimizationEnabled);
+          // Also restore AGC, Convolver, DDC states
+          viperController.setAGCEnabled(state.agcEnabled);
+          viperController.setConvolverEnabled(state.convolverEnabled);
+          viperController.setDDCEnabled(state.ddcEnabled);
+          // Restore output controls
+          viperController.setOutputVolume(state.outputVolume);
+          viperController.setOutputPan(state.outputPan);
+          viperController.setLimiterThreshold(state.limiterThreshold);
         }
         break;
       }
@@ -842,6 +879,10 @@ export function createViperAudio() {
     // Clear any previous errors
     error = null;
 
+    // Increment sequence first to invalidate any pending onended handlers
+    // This prevents stale handlers from corrupting state during track transitions
+    playbackSequence++;
+
     // Stop any existing playback completely
     if (sourceNode) {
       try {
@@ -966,10 +1007,26 @@ export function createViperAudio() {
       source.connect(ctx.destination);
     }
 
+    // Increment sequence and capture for this playback instance
+    playbackSequence++;
+    const mySequence = playbackSequence;
+
     source.onended = () => {
+      // Only handle onended if this is still the current playback sequence
+      // This prevents stale handlers from old tracks from affecting state
+      if (mySequence !== playbackSequence) {
+        return;
+      }
+
       if (isPlayingInternal) {
         isPlayingInternal = false;
         isPlaying = false;
+
+        // Cancel animation frame when playback ends
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
 
         const queueState = getAudioQueueState();
         const currentIdx = queueState.currentIndex;
@@ -1140,15 +1197,34 @@ export function createViperAudio() {
       return;
     }
 
+    // Calculate current position for 3-second check
+    let currentPosition = pauseTime;
+    if (isPlayingInternal && audioContext) {
+      currentPosition = audioContext.currentTime - startTime + pauseTime;
+    }
+
     // If more than 3 seconds into track, restart current track
-    if (
-      pauseTime > 3 ||
-      (audioContext && audioContext.currentTime - startTime + pauseTime > 3)
-    ) {
+    if (currentPosition > 3) {
+      // Increment sequence first to invalidate any pending onended handlers
+      playbackSequence++;
+
+      // Reset timing state
       pauseTime = 0;
       currentTime = 0;
+
       if (isPlayingInternal) {
+        // Cancel animation frame
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+
+        // Cleanup existing playback
         cleanupPlayback();
+        isPlayingInternal = false;
+        isPlaying = false;
+
+        // Restart playback after state is clean
         setTimeout(() => play(), 10);
       }
       return;
