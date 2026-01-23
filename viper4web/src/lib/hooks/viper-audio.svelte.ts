@@ -553,13 +553,50 @@ export function createViperAudio() {
 
     // Apply the effect change to the ViPER controller
     switch (key) {
-      case 'enabled':
-        viperController.setEnabled(value as boolean);
+      case 'enabled': {
+        const enabled = value as boolean;
+        viperController.setEnabled(enabled);
         // Also notify worklet
         if (workletNode) {
-          workletNode.port.postMessage({ type: 'setEnabled', value });
+          workletNode.port.postMessage({ type: 'setEnabled', value: enabled });
+        }
+        // When master is disabled, also disable all individual effects via WASM
+        // This ensures the WASM engine bypasses all processing
+        if (!enabled) {
+          viperController.setViperBassEnabled(false);
+          viperController.setViperClarityEnabled(false);
+          viperController.setFIREqualizerEnabled(false);
+          viperController.setFieldSurroundEnabled(false);
+          viperController.setDiffSurroundEnabled(false);
+          viperController.setReverbEnabled(false);
+          viperController.setVHEEnabled(false);
+          viperController.setDynamicSystemEnabled(false);
+          viperController.setCureEnabled(false);
+          viperController.setTubeSimulatorEnabled(false);
+          viperController.setAnalogXEnabled(false);
+          viperController.setSpectrumExtendEnabled(false);
+          viperController.setFETCompressorEnabled(false);
+          viperController.setSpeakerOptimizationEnabled(false);
+        } else {
+          // When master is re-enabled, restore individual effect states from store
+          const state = getEffectState();
+          viperController.setViperBassEnabled(state.viperBassEnabled);
+          viperController.setViperClarityEnabled(state.viperClarityEnabled);
+          viperController.setFIREqualizerEnabled(state.firEqualizerEnabled);
+          viperController.setFieldSurroundEnabled(state.fieldSurroundEnabled);
+          viperController.setDiffSurroundEnabled(state.diffSurroundEnabled);
+          viperController.setReverbEnabled(state.reverbEnabled);
+          viperController.setVHEEnabled(state.vheEnabled);
+          viperController.setDynamicSystemEnabled(state.dynamicSystemEnabled);
+          viperController.setCureEnabled(state.cureEnabled);
+          viperController.setTubeSimulatorEnabled(state.tubeSimulatorEnabled);
+          viperController.setAnalogXEnabled(state.analogXEnabled);
+          viperController.setSpectrumExtendEnabled(state.spectrumExtendEnabled);
+          viperController.setFETCompressorEnabled(state.fetCompressorEnabled);
+          viperController.setSpeakerOptimizationEnabled(state.speakerOptimizationEnabled);
         }
         break;
+      }
       case 'convolverEnabled':
         viperController.setConvolverEnabled(value as boolean);
         break;
@@ -965,6 +1002,12 @@ export function createViperAudio() {
 
     if (queue.length === 0) return;
 
+    // If no track is currently selected, start from the beginning
+    if (currentIndex < 0) {
+      playTrackInternal(0);
+      return;
+    }
+
     if (currentIndex < queue.length - 1) {
       playTrackInternal(currentIndex + 1);
     } else if (queueState.repeatMode === 'all') {
@@ -981,6 +1024,12 @@ export function createViperAudio() {
     const currentIndex = queueState.currentIndex;
 
     if (queue.length === 0) return;
+
+    // If no track is currently selected, start from the beginning
+    if (currentIndex < 0) {
+      playTrackInternal(0);
+      return;
+    }
 
     // If more than 3 seconds into track, restart current track
     if (
