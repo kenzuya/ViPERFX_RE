@@ -32,12 +32,14 @@
 	<meta name="description" content="ViPER4Web - A web-based audio effect processor based on ViPER4Android. Apply professional audio effects like equalizer, bass boost, surround sound, and more." />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta charset="UTF-8" />
-	<meta name="theme-color" content="#0f172a" />
+	<meta name="theme-color" content="#9333ea" />
 	<meta name="color-scheme" content="dark" />
 
-	<!-- Favicon -->
-	<link rel="icon" href={favicon} />
+	<!-- Favicon and Icons -->
+	<link rel="icon" type="image/svg+xml" href={favicon} />
 	<link rel="apple-touch-icon" href={favicon} />
+	<link rel="shortcut icon" href={favicon} />
+	<link rel="mask-icon" href={favicon} color="#9333ea" />
 
 	<!-- Open Graph / Social Media -->
 	<meta property="og:type" content="website" />
