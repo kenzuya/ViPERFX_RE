@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 
 .dev.vars*
 !.dev.vars.example
+
+# Generated WASM worklet files
+src/lib/audio-worklets/native/

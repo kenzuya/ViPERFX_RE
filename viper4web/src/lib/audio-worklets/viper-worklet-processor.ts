@@ -11,54 +11,104 @@
  * 3. Worklet outputs the processed audio when enabled, or passes through input when disabled
  */
 
+// Message types for type safety - Messages sent FROM the worklet
+interface ProcessedAudioMessage {
+  type: 'processedAudio';
+  outputL: Float32Array;
+  outputR: Float32Array;
+  sequence: number;
+}
+
+interface InputAudioMessage {
+  type: 'inputAudio';
+  inputL: Float32Array;
+  inputR: Float32Array;
+  sequence: number;
+  frameCount: number;
+}
+
+interface ReadyMessage {
+  type: 'ready';
+}
+
+// Messages sent TO the worklet
+interface StartMessage {
+  type: 'start';
+}
+
+interface ResetMessage {
+  type: 'reset';
+}
+
+interface SetEnabledMessage {
+  type: 'setEnabled';
+  value: boolean;
+}
+
+// Union types for all messages
+type WorkletOutgoingMessage = InputAudioMessage | ReadyMessage;
+type WorkletIncomingMessage = ProcessedAudioMessage | StartMessage | ResetMessage | SetEnabledMessage;
+
+// Pending output entry for out-of-order handling
+interface PendingOutput {
+  outputL: Float32Array;
+  outputR: Float32Array;
+}
+
 class ViperWorkletProcessor extends AudioWorkletProcessor {
+  // Ring buffer for processed audio (stereo)
+  private readonly bufferSize: number = 32768; // Larger buffer for stability
+  private readonly ringBufferL: Float32Array;
+  private readonly ringBufferR: Float32Array;
+  private writeIndex: number = 0;
+  private readIndex: number = 0;
+  private bufferedSamples: number = 0;
+
+  // Input buffer to accumulate before sending
+  private readonly inputBufferL: Float32Array;
+  private readonly inputBufferR: Float32Array;
+  private inputBufferIndex: number = 0;
+  private readonly inputChunkSize: number = 512;
+
+  // State
+  private isStarted: boolean = false; // Has playback started?
+  private enabled: boolean = true; // Master bypass state
+
+  // Pre-buffer: wait for enough samples before outputting
+  private readonly preBufferThreshold: number = 2048; // ~46ms at 44.1kHz
+  private hasPreBuffered: boolean = false;
+
+  // Sequence tracking
+  private inputSequence: number = 0;
+  private expectedOutputSequence: number = 0;
+  private readonly pendingOutputs: Map<number, PendingOutput> = new Map();
+
+  // Fade state for smooth transitions
+  private readonly fadeLength: number = 128;
+  private fadeIn: boolean = false;
+  private fadeOut: boolean = false;
+  private fadeIndex: number = 0;
+  private lastSampleL: number = 0;
+  private lastSampleR: number = 0;
+
   constructor() {
     super();
 
-    // Ring buffer for processed audio (stereo)
-    this.bufferSize = 32768; // Larger buffer for stability
+    // Initialize typed arrays
     this.ringBufferL = new Float32Array(this.bufferSize);
     this.ringBufferR = new Float32Array(this.bufferSize);
-    this.writeIndex = 0;
-    this.readIndex = 0;
-    this.bufferedSamples = 0;
-
-    // Input buffer to accumulate before sending
-    this.inputBufferL = new Float32Array(512);
-    this.inputBufferR = new Float32Array(512);
-    this.inputBufferIndex = 0;
-    this.inputChunkSize = 512;
-
-    // State
-    this.isStarted = false; // Has playback started?
-    this.enabled = true; // Master bypass state
-
-    // Pre-buffer: wait for enough samples before outputting
-    this.preBufferThreshold = 2048; // ~46ms at 44.1kHz
-    this.hasPreBuffered = false;
-
-    // Sequence tracking
-    this.inputSequence = 0;
-    this.expectedOutputSequence = 0;
-    this.pendingOutputs = new Map();
-
-    // Fade state for smooth transitions
-    this.fadeLength = 128;
-    this.fadeIn = false;
-    this.fadeOut = false;
-    this.fadeIndex = 0;
-    this.lastSampleL = 0;
-    this.lastSampleR = 0;
+    this.inputBufferL = new Float32Array(this.inputChunkSize);
+    this.inputBufferR = new Float32Array(this.inputChunkSize);
 
     // Message handling
-    this.port.onmessage = (event) => {
+    this.port.onmessage = (event: MessageEvent<WorkletIncomingMessage>): void => {
       this.handleMessage(event.data);
     };
 
-    this.port.postMessage({ type: 'ready' });
+    this.port.postMessage({ type: 'ready' } satisfies ReadyMessage);
   }
 
-  handleMessage(data) {
+  private handleMessage(data: WorkletIncomingMessage): void {
     switch (data.type) {
       case 'processedAudio':
         this.receiveProcessedAudio(data.outputL, data.outputR, data.sequence);
@@ -82,7 +132,7 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     }
   }
 
-  reset() {
+  private reset(): void {
     // Trigger fade out
     this.fadeOut = true;
     this.fadeIn = false;
@@ -100,7 +150,7 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     this.hasPreBuffered = false;
   }
 
-  receiveProcessedAudio(outputL, outputR, sequence) {
+  private receiveProcessedAudio(outputL: Float32Array, outputR: Float32Array, sequence: number): void {
     // Handle out-of-order delivery
     if (sequence !== this.expectedOutputSequence) {
       // Only store if it's ahead, not behind
@@ -116,24 +166,29 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     this.processPendingOutputs();
   }
 
-  processPendingOutputs() {
+  private processPendingOutputs(): void {
     while (this.pendingOutputs.has(this.expectedOutputSequence)) {
-      const { outputL, outputR } = this.pendingOutputs.get(this.expectedOutputSequence);
-      this.pendingOutputs.delete(this.expectedOutputSequence);
-      this.writeToRingBuffer(outputL, outputR);
-      this.expectedOutputSequence++;
+      const pending = this.pendingOutputs.get(this.expectedOutputSequence);
+      if (pending) {
+        const { outputL, outputR } = pending;
+        this.pendingOutputs.delete(this.expectedOutputSequence);
+        this.writeToRingBuffer(outputL, outputR);
+        this.expectedOutputSequence++;
+      }
     }
 
     // Clean up old entries
     const cutoff = this.expectedOutputSequence - 20;
-    for (const [seq] of this.pendingOutputs) {
+    const keysToDelete: number[] = [];
+    this.pendingOutputs.forEach((_, seq) => {
       if (seq < cutoff) {
-        this.pendingOutputs.delete(seq);
+        keysToDelete.push(seq);
       }
-    }
+    });
+    keysToDelete.forEach((seq) => this.pendingOutputs.delete(seq));
   }
 
-  writeToRingBuffer(outputL, outputR) {
+  private writeToRingBuffer(outputL: Float32Array, outputR: Float32Array): void {
     const samples = outputL.length;
 
     // Handle overflow by advancing read pointer
@@ -161,7 +216,11 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     }
   }
 
-  process(inputs, outputs) {
+  process(
+    inputs: Float32Array[][],
+    outputs: Float32Array[][],
+    _parameters: Record<string, Float32Array>
+  ): boolean {
     const input = inputs[0];
     const output = outputs[0];
 
@@ -178,29 +237,30 @@ class ViperWorkletProcessor extends AudioWorkletProcessor {
     const inputR = hasInput ? (input[1] || input[0]) : null;
 
     // Bypass path: when disabled, copy input directly to output
-    if (!this.enabled && hasInput) {
+    if (!this.enabled && hasInput && inputL && inputR) {
       for (let i = 0; i < frameCount; i++) {
         outputL[i] = inputL[i];
-        outputR[i] = inputR ? inputR[i] : inputL[i];
+        outputR[i] = inputR[i];
       }
       return true;
     }
 
     // Capture and send input to main thread for processing
-    if (hasInput && this.isStarted) {
+    if (hasInput && this.isStarted && inputL && inputR) {
       for (let i = 0; i < inputL.length; i++) {
         this.inputBufferL[this.inputBufferIndex] = inputL[i];
         this.inputBufferR[this.inputBufferIndex] = inputR[i];
         this.inputBufferIndex++;
 
         if (this.inputBufferIndex >= this.inputChunkSize) {
-          this.port.postMessage({
+          const message: InputAudioMessage = {
             type: 'inputAudio',
             inputL: new Float32Array(this.inputBufferL),
             inputR: new Float32Array(this.inputBufferR),
             sequence: this.inputSequence++,
             frameCount: this.inputChunkSize
-          });
+          };
+          this.port.postMessage(message);
           this.inputBufferIndex = 0;
         }
       }

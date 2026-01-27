@@ -9,6 +9,7 @@
  */
 
 import { audioQueue, getAudioQueueState } from '$lib/stores/audio-queue';
+import viperWorkletUrl from '$lib/audio-worklets/viper-worklet-processor.ts?worker&url';
 
 export interface MusicPlayerState {
   isPlaying: boolean;
@@ -134,8 +135,8 @@ export class MusicPlayer {
     }
 
     try {
-      // Register the worklet processor
-      await this.audioContext.audioWorklet.addModule('/viper-worklet-processor.js');
+      // Register the worklet processor (using Vite's ?worker&url import)
+      await this.audioContext.audioWorklet.addModule(viperWorkletUrl);
 
       // Create the worklet node
       const node = new AudioWorkletNode(this.audioContext, 'viper-processor', {
