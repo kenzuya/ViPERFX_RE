@@ -11,6 +11,13 @@ const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
+	{
+		// Ignore auto-generated WASM files and type definitions
+		ignores: [
+			'static/wasm/**',
+			'src/lib/types/viper4web.d.ts'
+		]
+	},
 	js.configs.recommended,
 	...ts.configs.recommended,
 	...svelte.configs.recommended,
@@ -33,6 +40,13 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		}
+	},
+	{
+		// Disable navigation resolve rule for UI components that use dynamic hrefs
+		files: ['src/lib/components/ui/**/*.svelte'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	}
 );
